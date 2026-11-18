@@ -554,3 +554,55 @@ html.no-scroll, html.no-scroll body { height: 100%; overflow: hidden; }
   .doc { border: none; box-shadow: none; padding: 0; }
   .wrap { padding: 0; max-width: none; }
 }
+
+/* =====================================================================
+   MOTION
+   ===================================================================== */
+
+/* Headlines: each line rises from behind a mask */
+.lines[data-anim] { opacity: 1; transform: none; }
+.lines.hero-anim { animation: none; }
+.ln { display: block; overflow: hidden; padding-bottom: 0.1em; margin-bottom: -0.1em; }
+.ln > span {
+  display: inline-block; transform: translateY(105%);
+  transition: transform 1.1s var(--ease-out);
+  transition-delay: calc(var(--i) * 90ms + var(--delay, 0ms));
+}
+.lines.in-view .ln > span { transform: none; }
+
+/* How it works: a mint line fills across the steps with scroll */
+.steps.track li { position: relative; }
+.steps.track li::after {
+  content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 2px;
+  background: var(--mint); transform: scaleX(var(--fill, 0)); transform-origin: left;
+}
+.steps.track li > .type-label { transition: color 0.4s var(--ease-quiet); }
+.steps.track li.lit > .type-label { color: var(--mint); }
+
+/* Selected work: floating preview */
+.work-preview {
+  position: fixed; left: 0; top: 0; z-index: 150; width: 340px; aspect-ratio: 16 / 10;
+  pointer-events: none; overflow: hidden; border-radius: 6px; background: var(--border);
+  box-shadow: 0 30px 60px -20px rgba(22, 24, 29, 0.45);
+  opacity: 0; scale: 0.85; transition: opacity 0.3s var(--ease-quiet), scale 0.45s var(--ease-out);
+}
+.work-preview.show { opacity: 1; scale: 1; }
+.work-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* About: halftone portrait that resolves into the photo */
+.about-photo { position: relative; }
+.about-photo canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 1s var(--ease-quiet); }
+.about-photo.dots img { opacity: 0; transition: opacity 1.1s var(--ease-quiet), transform 0.9s var(--ease-quiet); }
+.about-photo.dots.resolved img { opacity: 1; }
+.about-photo.resolved canvas { opacity: 0; }
+
+/* Service icons draw their own outline when they come into view */
+.svc-icon svg [pathLength], .svc-row-icon svg [pathLength] {
+  stroke-dasharray: 1 2; stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.6s var(--ease-out) 0.25s;
+}
+.in-view .svc-icon svg [pathLength], .in-view .svc-row-icon svg [pathLength] { stroke-dashoffset: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .svc-icon svg [pathLength], .svc-row-icon svg [pathLength] { stroke-dashoffset: 0; transition: none; }
+}

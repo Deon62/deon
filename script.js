@@ -101,6 +101,171 @@ const toast = (msg) => {
   addEventListener('keydown', (e) => e.key === 'Escape' && set(false));
 })();
 
+/* =====================================================================
+   MOTION — quiet details, all off under reduced motion
+   ===================================================================== */
+const MOTION_OK = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FINE_POINTER = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+/* ── Headlines rise in line by line from behind a mask ── */
+(() => {
+  if (!MOTION_OK) return;
+  const heads = $$('h1.type-statement, h2.type-statement').filter((h) => !h.children.length);
+  const split = (h) => {
+    const text = h.dataset.text || (h.dataset.text = h.textContent.trim().replace(/\s+/g, ' '));
+    h.innerHTML = text.split(' ').map((w) => `<span class="w">${esc(w)}</span>`).join(' ');
+    const lines = [];
+    let top = null;
+    $$('.w', h).forEach((w) => {
+      if (w.offsetTop !== top) { lines.push([]); top = w.offsetTop; }
+      lines[lines.length - 1].push(w.textContent);
+    });
+    h.innerHTML = lines.map((l, i) => `<span class="ln" style="--i:${i}"><span>${esc(l.join(' '))}</span></span>`).join('');
+  };
+  heads.forEach((h) => {
+    if (!h.hasAttribute('aria-label')) h.setAttribute('aria-label', h.textContent.trim().replace(/\s+/g, ' '));
+    h.classList.add('lines');
+    split(h);
+    // Page titles (no scroll trigger) reveal straight away.
+    if (!h.hasAttribute('data-anim')) setTimeout(() => h.classList.add('in-view'), 80);
+  });
+  // Re-measure once the web font is in, and when the width changes.
+  document.fonts?.ready.then(() => heads.forEach(split));
+  let lastW = innerWidth;
+  addEventListener('resize', () => {
+    if (innerWidth === lastW) return;
+    lastW = innerWidth;
+    heads.forEach(split);
+  });
+})();
+
+/* ── How it works: a line fills across the steps as you scroll ── */
+(() => {
+  const steps = $('.steps');
+  if (!steps) return;
+  const items = $$('li', steps);
+  steps.classList.add('track');
+  if (!MOTION_OK) return items.forEach((li) => { li.style.setProperty('--fill', 1); li.classList.add('lit'); });
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const r = steps.getBoundingClientRect();
+    const start = innerHeight * 0.85, end = innerHeight * 0.35;
+    const p = Math.min(1, Math.max(0, (start - r.top) / (start - end + r.height * 0.4)));
+    items.forEach((li, i) => {
+      const f = Math.min(1, Math.max(0, p * items.length - i));
+      li.style.setProperty('--fill', f.toFixed(3));
+      li.classList.toggle('lit', f >= 1);
+    });
+  };
+  addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+  addEventListener('resize', update);
+  update();
+})();
+
+/* ── Selected work: a live preview follows the cursor over each project ── */
+(() => {
+  const rows = $$('[data-preview]');
+  if (!rows.length || !FINE_POINTER || !MOTION_OK) return;
+  const box = document.createElement('div');
+  box.className = 'work-preview';
+  box.setAttribute('aria-hidden', 'true');
+  box.innerHTML = '<img alt="" />';
+  document.body.append(box);
+  const img = box.firstChild;
+  rows.forEach((r) => { const i = new Image(); i.src = r.dataset.preview; }); // preload
+
+  let x = 0, y = 0, tx = 0, ty = 0, raf = 0, active = false;
+  const loop = () => {
+    const dx = tx - x;
+    x += dx * 0.16; y += (ty - y) * 0.16;
+    const tilt = Math.max(-10, Math.min(10, dx * 0.12));
+    box.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${tilt}deg)`;
+    raf = active || Math.abs(dx) > 0.5 ? requestAnimationFrame(loop) : 0;
+  };
+  const move = (e) => { tx = Math.min(e.clientX + 120, innerWidth - 190); ty = e.clientY; if (!raf) raf = requestAnimationFrame(loop); };
+  rows.forEach((r) => {
+    r.addEventListener('pointerenter', (e) => {
+      if (!active) { x = tx = e.clientX + 120; y = ty = e.clientY; }
+      active = true;
+      img.src = r.dataset.preview;
+      box.classList.add('show');
+      move(e);
+    });
+    r.addEventListener('pointermove', move);
+    r.addEventListener('pointerleave', () => { active = false; box.classList.remove('show'); });
+  });
+  addEventListener('scroll', () => { if (active) { active = false; box.classList.remove('show'); } }, { passive: true });
+})();
+
+/* ── About: the portrait assembles from green halftone dots, then resolves ── */
+(() => {
+  const fig = $('.about-photo');
+  const photo = fig?.querySelector('img');
+  if (!fig || !photo || !MOTION_OK) return;
+  fig.classList.add('dots');
+  const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-hidden', 'true');
+  fig.append(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const run = () => {
+    const W = fig.clientWidth, H = fig.clientHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Sample the photo at the figure's size (object-fit: cover, top).
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const g = off.getContext('2d', { willReadFrequently: true });
+    const r = Math.max(W / photo.naturalWidth, H / photo.naturalHeight);
+    g.drawImage(photo, (W - photo.naturalWidth * r) / 2, 0, photo.naturalWidth * r, photo.naturalHeight * r);
+    const data = g.getImageData(0, 0, W, H).data;
+    const step = Math.max(6, Math.round(W / 64));
+    const dots = [];
+    for (let py = step / 2; py < H; py += step) {
+      for (let px = step / 2; px < W; px += step) {
+        const i = ((py | 0) * W + (px | 0)) * 4;
+        const lum = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+        const dark = Math.pow(1 - lum, 1.6); // ease the midtones so features read
+        if (dark < 0.06) continue;
+        dots.push({
+          x: px, y: py, r: Math.min(step * 0.6, step * 0.62 * dark + 0.45),
+          sx: px + (Math.random() - 0.5) * W * 0.6, sy: H + Math.random() * H * 0.5,
+          d: (1 - py / H) * 500 + Math.random() * 300,
+          c: dark > 0.55 ? '#16181D' : dark > 0.25 ? '#08513F' : '#2EA078',
+        });
+      }
+    }
+    const t0 = performance.now(), FLY = 1100;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const frame = (now) => {
+      const t = now - t0;
+      ctx.clearRect(0, 0, W, H);
+      let done = true;
+      for (const p of dots) {
+        const e = Math.min(1, Math.max(0, (t - p.d) / FLY));
+        if (e < 1) done = false;
+        if (e === 0) continue;
+        const k = ease(e);
+        ctx.globalAlpha = k;
+        ctx.fillStyle = p.c;
+        ctx.beginPath();
+        ctx.arc(p.sx + (p.x - p.sx) * k, p.sy + (p.y - p.sy) * k, p.r, 0, 6.283);
+        ctx.fill();
+      }
+      if (!done) return requestAnimationFrame(frame);
+      // Hold the halftone for a beat, then let the photo resolve through it.
+      setTimeout(() => fig.classList.add('resolved'), 450);
+    };
+    requestAnimationFrame(frame);
+  };
+
+  const ready = () => new IntersectionObserver(([e], io) => {
+    if (e.isIntersecting) { io.disconnect(); setTimeout(run, 250); }
+  }, { threshold: 0.3 }).observe(fig);
+  photo.complete && photo.naturalWidth ? ready() : photo.addEventListener('load', ready, { once: true });
+})();
+
 /* ── Reveal on scroll ── */
 (() => {
   const els = $$('[data-anim]');
@@ -211,7 +376,9 @@ $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
     g.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     if ('letterSpacing' in g) g.letterSpacing = cs.letterSpacing;
     const m = g.measureText(word);
-    g.fillText(word, pad, pad + (m.fontBoundingBoxAscent ?? fs * 0.9));
+    // The slot is inline-block, so its box is the line height; centre the glyphs' content area in it.
+    const A = m.fontBoundingBoxAscent ?? fs * 0.9, D = m.fontBoundingBoxDescent ?? fs * 0.25;
+    g.fillText(word, pad, pad + (r.height - (A + D)) / 2 + A);
     const data = g.getImageData(0, 0, w, h).data;
     const ox = r.left - c.left - pad, oy = r.top - c.top - pad;
     const pts = [];
