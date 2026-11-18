@@ -138,49 +138,24 @@ const toast = (msg) => {
 $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
 
 /* =====================================================================
-   HERO — typed word ("I build ___")
-   ===================================================================== */
-(() => {
-  const el = $('#typed');
-  if (!el) return;
-  const words = el.dataset.words.split(',');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  let w = 0, i = words[0].length, deleting = true;
-  const tick = () => {
-    if (deleting) {
-      i--;
-      el.textContent = words[w].slice(0, i);
-      if (i === 0) {
-        deleting = false;
-        w = (w + 1) % words.length;
-        return setTimeout(tick, 260);
-      }
-      return setTimeout(tick, 45);
-    }
-    i++;
-    el.textContent = words[w].slice(0, i);
-    if (i === words[w].length) { deleting = true; return setTimeout(tick, 3000); }
-    setTimeout(tick, 85);
-  };
-  setTimeout(tick, 3400);
-})();
-
-/* =====================================================================
-   HERO — dot wave
+   HERO — dot wave + words made of the wave
    A plane of dots in perspective rolls like a slow swell beneath the
-   headline, fading from deep emerald on the left to a lighter green on
-   the right. The cursor (or a finger) lifts the ground beneath it, and
-   now and then a ripple spreads out from a point on the plane.
-   Density adapts to the screen, so it fits phones as well as desktops.
-   Pauses off screen; one still frame under reduced motion.
+   headline. The headline's changing word is not typed: dots lift off
+   the wave, fly up along curved paths and assemble into the word,
+   letter by letter from left to right. While it holds, the word
+   shimmers and scatters away from the cursor, then the dots fall back
+   into the wave just as the next word rises out of it.
+   The real word stays in the HTML (transparent while the effect runs)
+   for search engines, screen readers and copy/paste.
+   Pauses off screen; still frame and plain text under reduced motion.
    ===================================================================== */
 (() => {
   const canvas = $('#heroField');
   const ctx = canvas?.getContext('2d');
   if (!canvas || !ctx) return;
 
-  const DEEP  = [8, 81, 63];     // --green-deep
-  const LIGHT = [46, 160, 120];  // lighter green
+  const DEEP  = [8, 81, 63];          // --green-deep
+  const LIGHT = [46, 160, 120];       // lighter green
   const CREST = 'rgb(159, 224, 193)'; // --mint
   const SHADES = 24;
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
@@ -204,8 +179,7 @@ $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
     return { x: W / 2 + (u * W * 0.95) / depth, y: horizon + (ground - h * H * 0.07) / depth };
   };
 
-  const draw = (t) => {
-    ctx.clearRect(0, 0, W, H);
+  const drawWave = (t) => {
     for (let r = rows - 1; r >= 0; r--) {
       const v = r / (rows - 1);
       for (let c = 0; c < cols; c++) {
@@ -236,6 +210,113 @@ $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
     ctx.globalAlpha = 1;
   };
 
+  /* ── Words made of the wave ── */
+  const slot = $('#heroWord');
+  const WORDS = slot ? slot.dataset.words.split(',') : [];
+  const HOLD = 2800;
+  let groups = [], wordIndex = 0, nextSwitch = Infinity, live = false, lastWidth = 0;
+  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const easeIn = (t) => t * t * t;
+  const fromWave = () => project(Math.random() * 1.6 - 0.8, 0.08 + Math.random() * 0.42, 0);
+
+  // Lay the word out in the real headline, then sample its pixels.
+  const sampleWord = (word) => {
+    slot.textContent = word;
+    const r = slot.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    const cs = getComputedStyle(slot);
+    const fs = parseFloat(cs.fontSize);
+    const step = Math.max(2.6, fs / 17);
+    const pad = Math.ceil(fs * 0.25);
+    const w = Math.ceil(r.width + pad * 2), h = Math.ceil(r.height + pad * 2);
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const g = off.getContext('2d', { willReadFrequently: true });
+    g.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    if ('letterSpacing' in g) g.letterSpacing = cs.letterSpacing;
+    const m = g.measureText(word);
+    g.fillText(word, pad, pad + (m.fontBoundingBoxAscent ?? fs * 0.9));
+    const data = g.getImageData(0, 0, w, h).data;
+    const ox = r.left - c.left - pad, oy = r.top - c.top - pad;
+    const pts = [];
+    for (let y = 0; y < h; y += step)
+      for (let x = 0; x < w; x += step)
+        if (data[((y | 0) * w + (x | 0)) * 4 + 3] > 140) pts.push([ox + x, oy + y]);
+    return { pts, size: step * 0.82, left: r.left - c.left, width: r.width || 1 };
+  };
+
+  const retire = (t) => groups.forEach((gr) => {
+    if (gr.falling) return;
+    gr.falling = true;
+    gr.parts.forEach((p) => {
+      const d = fromWave();
+      Object.assign(p, { fx: p.x, fy: p.y, dx: d.x, dy: d.y, t0: t + Math.random() * 380, dur: 650 + Math.random() * 500 });
+    });
+  });
+
+  const spawn = (t, instant = false) => {
+    retire(t);
+    const { pts, size, left, width } = sampleWord(WORDS[wordIndex]);
+    const parts = pts.map(([x, y]) => {
+      const s = fromWave();
+      const k = Math.min(1, Math.max(0, (x - left) / width));
+      return {
+        sx: s.x, sy: s.y, tx: x, ty: y, x: s.x, y: s.y, ox: 0, oy: 0, vx: 0, vy: 0, size,
+        t0: instant ? t - 5000 : t + 120 + k * 520 + Math.random() * 380,
+        dur: 900 + Math.random() * 600,
+        curve: (Math.random() - 0.5) * 180,
+        phase: Math.random() * 6.283,
+        color: Math.random() < 0.1 ? CREST : palette[Math.min(SHADES - 1, Math.round(k * (SHADES - 1)))],
+      };
+    });
+    groups.push({ parts, falling: false });
+    nextSwitch = t + 1800 + HOLD;
+    wordIndex = (wordIndex + 1) % WORDS.length;
+  };
+
+  const drawWords = (t) => {
+    if (!live) return;
+    if (t > nextSwitch) spawn(t);
+    groups = groups.filter((gr) => !gr.falling || gr.parts.some((p) => t < p.t0 + p.dur));
+    for (const gr of groups) {
+      for (const p of gr.parts) {
+        let x, y, a;
+        if (gr.falling) {
+          const e = Math.min(1, Math.max(0, (t - p.t0) / p.dur));
+          if (e >= 1) continue;
+          const k = easeIn(e);
+          x = p.fx + (p.dx - p.fx) * k;
+          y = p.fy + (p.dy - p.fy) * k;
+          a = 1 - e * 0.8;
+        } else {
+          const e = Math.min(1, Math.max(0, (t - p.t0) / p.dur));
+          if (e === 0) continue; // still part of the wave
+          const k = easeInOut(e);
+          x = p.sx + (p.tx - p.sx) * k + Math.sin(Math.PI * k) * p.curve;
+          y = p.sy + (p.ty - p.sy) * k;
+          if (e >= 1) {
+            // Holding: spring back from the cursor, with a faint shimmer.
+            const ddx = x + p.ox - pointer.x, ddy = y + p.oy - pointer.y, d2 = ddx * ddx + ddy * ddy;
+            if (d2 < 6400 && pointer.lift > 0.5) {
+              const d = Math.sqrt(d2) || 1, f = (1 - d / 80) * 2.4;
+              p.vx += (ddx / d) * f; p.vy += (ddy / d) * f;
+            }
+            p.vx = (p.vx - p.ox * 0.07) * 0.82;
+            p.vy = (p.vy - p.oy * 0.07) * 0.82;
+            p.ox += p.vx; p.oy += p.vy;
+            x += p.ox + Math.sin(t * 0.002 + p.phase) * 0.35;
+            y += p.oy + Math.cos(t * 0.0023 + p.phase) * 0.35;
+          }
+          a = 0.3 + 0.7 * k;
+          p.x = x; p.y = y;
+        }
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x - p.size / 2, y - p.size / 2, p.size, p.size);
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+
   const tick = (t) => {
     ripples = ripples.filter((rp) => t - rp.start < 3200);
     if (t > nextRipple && ripples.length < 2) {
@@ -243,7 +324,9 @@ $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
       nextRipple = t + 2600 + Math.random() * 2600;
     }
     pointer.lift += ((pointer.x > -1e3 ? 1 : 0) - pointer.lift) * 0.06;
-    draw(t);
+    ctx.clearRect(0, 0, W, H);
+    drawWave(t);
+    drawWords(t);
     frame = requestAnimationFrame(tick);
   };
 
@@ -262,14 +345,32 @@ $$('[data-year]').forEach((el) => (el.textContent = new Date().getFullYear()));
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     grid();
+    // Re-lay the current word if the width changed (not on mobile toolbar height changes).
+    if (live && W !== lastWidth) {
+      groups = [];
+      wordIndex = (wordIndex - 1 + WORDS.length) % WORDS.length;
+      spawn(performance.now(), true);
+    }
+    lastWidth = W;
     if (W === 0) stop();
-    else if (reduced) draw(2000);
+    else if (reduced) { ctx.clearRect(0, 0, W, H); drawWave(2000); }
     else start();
   };
 
   new ResizeObserver(resize).observe(canvas);
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; visible ? start() : stop(); }).observe(canvas);
   document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+
+  // Start the word effect once the headline font is ready, so the shapes match.
+  if (slot && WORDS.length && !reduced) {
+    // Wait for the font, and for the headline's own fade-in to finish.
+    (document.fonts?.ready || Promise.resolve()).then(() => new Promise((r) => setTimeout(r, 1000))).then(() => {
+      live = true;
+      slot.classList.add('is-live');
+      lastWidth = W;
+      spawn(performance.now());
+    });
+  }
 
   // The canvas sits behind the copy, so listen on the page. Touch works too.
   addEventListener('pointermove', (e) => {

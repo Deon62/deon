@@ -172,10 +172,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hero .type-lede { max-width: 36rem; margin-top: 36px; }
 .hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 40px; }
 
-/* Typed word: types, holds, deletes. Caret blinks in green. */
-.typed { color: var(--green); white-space: nowrap; }
-.typed-caret { display: inline-block; width: 0.06em; height: 0.82em; margin-left: 0.06em; background: var(--green); vertical-align: -0.04em; animation: caret 1s steps(1) infinite; }
-@keyframes caret { 50% { opacity: 0; } }
+/* The changing word: drawn by the dot wave (script.js). The real text
+   stays in place, transparent, so layout, SEO and copy/paste still work. */
+.hero-word { display: inline-block; color: var(--green); white-space: nowrap; }
+.hero-word.is-live { color: transparent; }
 
 /* ── Cards (ardenap): square, hairline border, top rule draws in on hover ── */
 .cards-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
@@ -247,6 +247,46 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .svc-price span { font-size: 15px; letter-spacing: 0; margin-right: 6px; }
 .svc-foot > p { max-width: 30rem; font-size: 15px; line-height: 1.6; }
 .svc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px 32px; }
+
+/* ── Selected work: big names, live links ── */
+.work-rows { border-top: 1px solid var(--line); }
+.work-row {
+  position: relative; display: grid; align-items: center; gap: 32px;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1.1fr) minmax(170px, auto);
+  padding: 32px 0; border-bottom: 1px solid var(--line);
+  transition: padding 0.5s var(--ease-quiet);
+}
+.work-row::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform 0.7s var(--ease-quiet);
+}
+.work-row:hover { padding-left: 16px; }
+.work-row:hover::before { transform: scaleX(1); }
+.work-num { font-size: 13px; }
+.work-name { font-size: clamp(26px, 3vw, 44px); line-height: 1.05; letter-spacing: -0.035em; font-weight: 400; transition: color 0.3s; }
+.work-row:hover .work-name { color: var(--green); }
+.work-row.is-link .work-name a::after { content: ''; position: absolute; inset: 0; } /* whole row clickable */
+.work-tags { display: block; margin-top: 10px; font-size: 13px; color: var(--faint); }
+.work-desc { font-size: 15px; line-height: 1.6; color: var(--muted); }
+.work-links { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 20px; }
+.work-links a {
+  display: inline-flex; align-items: center; gap: 6px; padding-bottom: 3px; font-size: 14px; white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); transition: border-color 0.3s, color 0.3s;
+}
+.work-links a:hover, .work-row.is-link:hover .work-links a { color: var(--green); border-color: currentColor; }
+
+/* ── About ── */
+.about { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 72px; align-items: center; padding-top: 48px; }
+.about-photo { aspect-ratio: 4 / 5; overflow: hidden; background: #F3F1EE; }
+.about-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform 0.9s var(--ease-quiet); }
+.about-photo:hover img { transform: scale(1.03); }
+.about-copy .type-lede { margin-top: 28px; max-width: 38rem; }
+.about-copy h1 + .type-lede { margin-top: 36px; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 40px; border-top: 1px solid var(--line); }
+.facts > div { padding: 24px 24px 0 0; }
+.facts strong { display: block; font-size: clamp(22px, 2.2vw, 30px); font-weight: 400; letter-spacing: -0.035em; line-height: 1.1; }
+.facts span { display: block; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.about-links { display: flex; flex-wrap: wrap; align-items: center; gap: 20px 32px; margin-top: 40px; }
 
 /* ── Steps (ardenap) ── */
 .steps { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; }
@@ -442,6 +482,10 @@ html.no-scroll, html.no-scroll body { height: 100%; overflow: hidden; }
   .svc-rows a { grid-template-columns: 32px minmax(0, 1fr) 24px; gap: 20px; }
   .svc-row-blurb { display: none; }
   .svc-index { columns: 2; }
+  .work-row { grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px 24px; }
+  .work-desc { grid-column: 2 / -1; grid-row: 2; }
+  .about { grid-template-columns: 1fr; gap: 40px; }
+  .about-photo { max-width: 420px; }
   .included { grid-auto-flow: row; grid-template-columns: 1fr 1fr; }
   .split { grid-template-columns: 1fr !important; }
   .sticky { position: static; }
@@ -460,6 +504,12 @@ html.no-scroll, html.no-scroll body { height: 100%; overflow: hidden; }
   .svc-row-blurb { display: block; grid-row: 2; font-size: 14px; }
   .svc-row-arrow { grid-row: 1 / span 2; grid-column: 2; }
   .svc-index { columns: 1; }
+  .work-row { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 28px 0; }
+  .work-num { display: none; }
+  .work-desc { grid-column: auto; grid-row: auto; }
+  .work-links { justify-content: flex-start; }
+  .facts { grid-template-columns: 1fr; }
+  .facts > div { padding: 18px 0; border-bottom: 1px solid var(--line); }
   .included { grid-template-columns: 1fr; }
   .included li { min-height: 0; gap: 16px; }
   .svc-icon { width: 52px; height: 52px; }
@@ -481,7 +531,7 @@ html.no-scroll, html.no-scroll body { height: 100%; overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-anim] { opacity: 1 !important; transform: none !important; }
-  .hero-anim, .typed-caret { animation: none; }
+  .hero-anim { animation: none; }
 }
 
 @media print {
