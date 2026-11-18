@@ -168,7 +168,7 @@
       <section class="state" id="stateOk" aria-live="polite">
         <div class="state-icon ok"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h3>Payment received</h3>
-        <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. Save your receipt from the link below.</p>
+        <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. Your receipt is in your inbox and at the link below.</p>
         <div class="btn-stack">
           <a class="btn btn-ink" id="receiptLink" href="/receipt">View receipt</a>
           <a class="btn btn-outline" href="/">Done</a>
@@ -322,12 +322,6 @@
         if (mine !== run) return;
         if (res?.status !== 'success') return fail(res?.message || 'No response from M-Pesa. No money was taken.');
 
-        sendForm({
-          _subject: `Payment received: ${kes(res.amount)} from ${body.name}`,
-          receipt: res.receipt_number, amount: kes(res.amount), for: invoice ? description() : body.service,
-          invoice: body.invoice || 'None', name: body.name, email: body.email,
-          phone: '0' + phone.slice(3), mpesa_code: res.mpesa_code,
-        });
         $('#okAmount').textContent = kes(res.amount);
         $('#okCode').textContent = res.mpesa_code;
         $('#receiptLink').href = '/receipt?id=' + encodeURIComponent(res.receipt_token);

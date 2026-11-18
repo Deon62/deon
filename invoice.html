@@ -86,6 +86,7 @@
           </div>
 
           <label class="toggle"><input type="checkbox" name="vat" /> Add VAT (16%)</label>
+          <label class="toggle"><input type="checkbox" name="sendEmail" checked /> Email the invoice to the client</label>
 
           <div class="field"><label for="i-notes">Notes</label><textarea id="i-notes" name="notes" style="min-height:80px">50% deposit to start, balance on delivery. Thank you for your business.</textarea></div>
 
@@ -206,12 +207,13 @@
           client_name: inv.client.name, client_company: inv.client.company,
           client_email: inv.client.email, client_phone: inv.client.phone,
           items: inv.items.filter((i) => i.desc && i.qty > 0), vat: form.vat.checked,
-          notes: inv.notes, due_days: inv.dueDays,
+          notes: inv.notes, due_days: inv.dueDays, send_email: form.sendEmail.checked,
         } });
         form.number.value = saved.number;
         render();
         const link = location.origin + '/pay?inv=' + encodeURIComponent(saved.number);
-        try { await navigator.clipboard.writeText(link); toast(`Saved ${saved.number}. Payment link copied`); }
+        const mailed = form.sendEmail.checked && saved.client_email ? ' and emailed' : '';
+        try { await navigator.clipboard.writeText(link); toast(`Saved${mailed}. Payment link copied`); }
         catch { toast('Saved. Link: ' + link); }
       } catch (err) {
         toast(err.status === 401 ? 'Wrong admin key' : err.message);

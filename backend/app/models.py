@@ -10,6 +10,9 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Overall project status, separate from the stage it's in.
+STATUSES: dict[str, str] = {"active": "Active", "paused": "On hold", "completed": "Completed"}
+
 # Project stages, in order. The tracker shows them as a timeline.
 STAGES: dict[str, str] = {
     "discovery": "Discovery",
@@ -48,6 +51,7 @@ class Project(Base):
     client_email: Mapped[str] = mapped_column(String(200), index=True)
     summary: Mapped[str] = mapped_column(Text, default="")
     stage: Mapped[str] = mapped_column(String(20), default="discovery")
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
     progress: Mapped[int] = mapped_column(Integer, default=0)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     quote_number: Mapped[str | None] = mapped_column(String(20), nullable=True)

@@ -9,7 +9,11 @@ _url = get_settings().sqlalchemy_url
 engine = create_engine(
     _url,
     pool_pre_ping=True,
-    connect_args={"check_same_thread": False} if _url.startswith("sqlite") else {},
+    # Supabase's poolers don't support prepared statements, so psycopg must not create them.
+    connect_args={"check_same_thread": False} if _url.startswith("sqlite") else {"prepare_threshold": None},
+    pool_size=5,
+    max_overflow=5,
+    pool_recycle=300,
 )
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 

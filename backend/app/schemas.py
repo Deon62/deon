@@ -3,9 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import STAGES
+from .models import STAGES, STATUSES
 
 Stage = Literal[tuple(STAGES)]  # type: ignore[valid-type]
+Status = Literal[tuple(STATUSES)]  # type: ignore[valid-type]
 
 
 class Out(BaseModel):
@@ -60,6 +61,7 @@ class InvoiceIn(BaseModel):
     vat: bool = False
     notes: str = Field("", max_length=2000)
     due_days: int = Field(7, ge=0, le=365)
+    send_email: bool = True  # email the invoice to client_email
 
 
 class InvoicePublic(Out):
@@ -154,12 +156,18 @@ class ProjectIn(BaseModel):
     progress: int = Field(0, ge=0, le=100)
     due_date: date | None = None
     quote_number: str | None = None
+    notify: bool = True  # email the client their tracking code
 
 
 class ProjectPatch(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=160)
+    client_name: str | None = Field(None, min_length=1, max_length=120)
+    client_email: EmailStr | None = None
     summary: str | None = Field(None, max_length=3000)
     due_date: date | None = None
+    status: Status | None = None
+    stage: Stage | None = None
+    progress: int | None = Field(None, ge=0, le=100)
 
 
 class UpdateIn(BaseModel):
@@ -168,6 +176,7 @@ class UpdateIn(BaseModel):
     stage: Stage
     progress: int = Field(ge=0, le=100)
     link: str = Field("", max_length=300)
+    notify: bool = True  # email the client about this update
 
 
 class UpdateOut(Out):
@@ -186,6 +195,7 @@ class ProjectOut(Out):
     client_email: str
     summary: str
     stage: str
+    status: str
     progress: int
     due_date: date | None
     quote_number: str | None
@@ -205,6 +215,7 @@ class TrackOut(BaseModel):
     client_name: str
     summary: str
     stage: str
+    status: str
     progress: int
     due_date: date | None
     started: datetime

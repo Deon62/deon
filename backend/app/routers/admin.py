@@ -3,10 +3,11 @@
 import secrets
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from .. import emails
 from ..config import get_settings
 from ..db import get_db
 from ..models import Invoice, Payment, Project, ProjectUpdate, Quote
@@ -39,7 +40,36 @@ router = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_limit), Depe
 
 @router.get("/check")
 def check() -> dict:
-    return {"ok": True}
+    return {"ok": True, "email": emails.enabled()}
+
+
+@router.post("/email-test")
+async def email_test() -> dict:
+    """Sends a sample of each client email to NOTIFY_EMAIL so you can see them."""
+    s = get_settings()
+    if not emails.enabled():
+        raise HTTPException(503, "Emails are off: set RESEND_API_KEY on the server.")
+    today = date.today()
+    project = {"code": "DO-DEMO01", "title": "Bloom Cafe website & ordering", "client_name": "Deon Orina",
+               "client_email": s.notify_email, "due_date": today + timedelta(days=21)}
+    samples = [
+        emails.quote_received({"number": "QT-2026-0000", "name": "Deon Orina", "services": ["website", "payments"],
+                               "extras": ["mpesa", "seo"], "timeline": "standard"}),
+        emails.project_welcome(project),
+        emails.project_update(project, {"title": "Homepage design ready for review", "stage": "design", "progress": 35,
+                                        "body": "Desktop and mobile layouts are up. Leave comments on anything you'd change.",
+                                        "link": s.site_url}),
+        emails.invoice_issued({"number": "INV-2026-0000", "client_name": "Deon Orina", "created_at": today,
+                               "due_date": today + timedelta(days=7), "items": [{"desc": "Website design & build", "qty": 1, "rate": 90000},
+                               {"desc": "M-Pesa checkout", "qty": 1, "rate": 30000}], "vat": 0, "total": 120000,
+                               "notes": "50% deposit to start, balance on delivery.", "project_code": "DO-DEMO01"}),
+    ]
+    sent = 0
+    for subject, html, text in samples:
+        sent += await emails.send(s.notify_email, "[Test] " + subject, html, text)
+    if not sent:
+        raise HTTPException(502, "Resend rejected the emails. Check the server logs and that your domain is verified.")
+    return {"sent": sent, "to": s.notify_email}
 
 
 # ── Quotes ──────────────────────────────────────────────────────────────
@@ -80,7 +110,7 @@ def next_invoice_number(db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/invoices", response_model=InvoiceOut, status_code=201)
-def create_invoice(body: InvoiceIn, db: Session = Depends(get_db)):
+def create_invoice(body: InvoiceIn, bg: BackgroundTasks, db: Session = Depends(get_db)):
     number = (body.number or "").strip().upper() or next_number(db, Invoice.number, "INV")
     if db.scalar(select(Invoice.id).where(Invoice.number == number)):
         raise HTTPException(409, f"Invoice {number} already exists.")
@@ -101,6 +131,11 @@ def create_invoice(body: InvoiceIn, db: Session = Depends(get_db)):
     )
     db.add(inv)
     db.commit()
+    if body.send_email and "@" in inv.client_email:
+        data = {"number": inv.number, "client_name": inv.client_name, "created_at": inv.created_at, "due_date": inv.due_date,
+                "items": items, "vat": vat, "total": inv.total, "notes": inv.notes,
+                "project_code": project.code if project else None}
+        bg.add_task(emails.send, inv.client_email, *emails.invoice_issued(data))
     return _invoice_out(inv)
 
 
@@ -126,11 +161,11 @@ def list_projects(db: Session = Depends(get_db)):
 
 
 @router.post("/projects", response_model=ProjectOut, status_code=201)
-def create_project(body: ProjectIn, db: Session = Depends(get_db)):
+def create_project(body: ProjectIn, bg: BackgroundTasks, db: Session = Depends(get_db)):
     code = "DO-" + random_code(6)
     while db.scalar(select(Project.id).where(Project.code == code)):
         code = "DO-" + random_code(6)
-    p = Project(code=code, **body.model_dump())
+    p = Project(code=code, **body.model_dump(exclude={"notify"}))
     p.updates.append(ProjectUpdate(
         title="Project started", body=body.summary, stage=body.stage, progress=body.progress,
     ))
@@ -140,25 +175,39 @@ def create_project(body: ProjectIn, db: Session = Depends(get_db)):
             q.status = "won"
     db.add(p)
     db.commit()
+    if body.notify:
+        bg.add_task(emails.send, p.client_email, *emails.project_welcome(_project_dict(p)))
     return p
+
+
+def _project_dict(p: Project) -> dict:
+    return {"code": p.code, "title": p.title, "client_name": p.client_name, "client_email": p.client_email, "due_date": p.due_date}
 
 
 @router.patch("/projects/{code}", response_model=ProjectOut)
 def edit_project(code: str, body: ProjectPatch, db: Session = Depends(get_db)):
     p = _get_project(db, code)
     for k, v in body.model_dump(exclude_unset=True).items():
-        setattr(p, k, v)
+        setattr(p, k, str(v) if k == "client_email" and v else v)
+    if body.status == "completed":
+        p.stage, p.progress = "done", 100
     db.commit()
     return p
 
 
 @router.post("/projects/{code}/updates", response_model=ProjectOut, status_code=201)
-def post_update(code: str, body: UpdateIn, db: Session = Depends(get_db)):
+def post_update(code: str, body: UpdateIn, bg: BackgroundTasks, db: Session = Depends(get_db)):
     """Post progress. Moves the project to the update's stage and percentage."""
     p = _get_project(db, code)
-    p.updates.append(ProjectUpdate(**body.model_dump()))
+    p.updates.append(ProjectUpdate(**body.model_dump(exclude={"notify"})))
     p.stage, p.progress = body.stage, body.progress
+    if body.stage == "done":
+        p.status = "completed"
+    elif p.status == "completed":
+        p.status = "active"
     db.commit()
+    if body.notify:
+        bg.add_task(emails.send, p.client_email, *emails.project_update(_project_dict(p), body.model_dump()))
     db.refresh(p)
     return p
 

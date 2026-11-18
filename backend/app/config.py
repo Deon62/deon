@@ -8,7 +8,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Render injects DATABASE_URL from the linked Postgres. SQLite is for local runs.
+    # Supabase Postgres connection string (Project Settings > Database > Session pooler).
+    # SQLite is for local runs.
     database_url: str = "sqlite:///./deon.db"
 
     # Shared secret for /api/admin/* (sent as the X-Admin-Key header). Empty disables admin.
@@ -34,6 +35,19 @@ class Settings(BaseSettings):
     payhero_callback_secret: str = ""
     # Simulate successful payments without calling PayHero (local testing only).
     payhero_mock: bool = False
+
+    # Email via Resend (https://resend.com). Blank key = emails are skipped and logged.
+    resend_api_key: str = ""
+    # Must be on a domain verified in Resend.
+    email_from: str = "Deon Orina <hello@deon.ardena.co.ke>"
+    email_reply_to: str = "ceo@ardena.co.ke"
+    # Where new quote and payment alerts go.
+    notify_email: str = "ceo@ardena.co.ke"
+    # The website, for links in emails.
+    site_url: str = "https://deon.ardena.co.ke"
+
+    # Keep a sample project (code DO-DEMO01, email demo@deon.ardena.co.ke) for showing off /track.
+    seed_demo: bool = True
 
     @property
     def sqlalchemy_url(self) -> str:

@@ -69,7 +69,7 @@
             <button type="button" data-tab="invoices">Invoices</button>
             <button type="button" data-tab="payments">Payments</button>
           </nav>
-          <div class="admin-bar-right"><a class="btn btn-sm btn-outline" href="/invoice">New invoice</a><button class="btn btn-sm btn-outline" type="button" id="lockBtn">Lock</button></div>
+          <div class="admin-bar-right"><span class="admin-pill" id="emailState"></span><button class="btn btn-sm btn-outline" type="button" id="testMail">Send test emails</button><a class="btn btn-sm btn-outline" href="/invoice">New invoice</a><button class="btn btn-sm btn-outline" type="button" id="lockBtn">Lock</button></div>
         </div>
 
         <!-- Projects -->
@@ -87,10 +87,16 @@
                 <div class="field"><label for="np-due">Target date</label><input id="np-due" name="due_date" type="date" /></div>
                 <div class="field"><label for="np-quote">From quote <span class="opt">(optional)</span></label><input id="np-quote" name="quote_number" class="mono" placeholder="QT-2026-0001" /></div>
               </div>
+              <label class="toggle"><input type="checkbox" name="notify" checked /> Email the client their tracking code</label>
               <button class="btn btn-ink btn-full" type="submit">Create project</button>
               <div class="admin-note" id="npDone" hidden></div>
             </form>
-            <div id="projectList" class="admin-list"></div>
+            <div>
+              <div class="admin-filter" id="projectFilter">
+                <button type="button" data-f="all" class="on">All</button><button type="button" data-f="active">Active</button><button type="button" data-f="paused">On hold</button><button type="button" data-f="completed">Completed</button>
+              </div>
+              <div id="projectList" class="admin-list"></div>
+            </div>
           </div>
         </div>
 
@@ -111,7 +117,24 @@
         <div class="field"><label>Progress <output class="mono" name="pctOut"></output></label><input name="progress" type="range" min="0" max="100" step="5" /></div>
       </div>
       <div class="field"><label>Link <span class="opt">(staging URL, optional)</span></label><input name="link" type="url" placeholder="https://" /></div>
+      <label class="toggle"><input type="checkbox" name="notify" checked /> Email the client about this update</label>
       <button class="btn btn-green btn-sm" type="submit">Post update</button>
+    </form>
+  </template>
+
+  <template id="editTpl">
+    <form class="form update-form" novalidate>
+      <div class="field"><label>Project title</label><input name="title" /></div>
+      <div class="form-row">
+        <div class="field"><label>Client name</label><input name="client_name" /></div>
+        <div class="field"><label>Client email</label><input name="client_email" type="email" /></div>
+      </div>
+      <div class="field"><label>Summary</label><textarea name="summary" style="min-height:70px"></textarea></div>
+      <div class="field"><label>Target date</label><input name="due_date" type="date" /></div>
+      <div class="admin-actions">
+        <button class="btn btn-ink btn-sm" type="submit">Save changes</button>
+        <button class="text-link danger" type="button" data-act="delete">Delete project</button>
+      </div>
     </form>
   </template>
 
@@ -127,13 +150,16 @@
 
     /* ── Gate ── */
     const open = async () => {
-      try { await A('/api/admin/check'); }
+      let info;
+      try { info = await A('/api/admin/check'); }
       catch (e) {
         $('#gate').hidden = false; $('#dash').hidden = true;
         if (localStorage.getItem('deon.adminKey')) { $('#gateMsg').textContent = e.status === 401 ? 'Wrong admin key.' : e.message; $('#gateMsg').hidden = false; }
         return;
       }
       $('#gate').hidden = true; $('#dash').hidden = false;
+      $('#emailState').textContent = info.email ? 'Email on' : 'Email off';
+      $('#emailState').classList.toggle('off', !info.email);
       loadProjects();
     };
     $('#gateForm').addEventListener('submit', (e) => { e.preventDefault(); setKey($('#a-key').value.trim()); open(); });
@@ -148,44 +174,62 @@
     }));
 
     /* ── Projects ── */
+    const STATUS = { active: 'Active', paused: 'On hold', completed: 'Completed' };
+    let projects = [], filter = 'all';
+    const byCode = (c) => projects.find((p) => p.code === c);
+
     const projectCard = (p) => `
-      <article class="admin-card" data-code="${esc(p.code)}">
+      <article class="admin-card status-${p.status}" data-code="${esc(p.code)}">
         <header>
           <div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.client_name)} · ${esc(p.client_email)}</p></div>
           <div class="admin-card-meta"><span class="mono">${esc(p.code)}</span><strong>${p.progress}%</strong><span class="muted">${STAGES[p.stage] || p.stage}</span></div>
         </header>
         <div class="meter-bar"><i style="width:${p.progress}%"></i></div>
-        <div class="admin-actions">
-          <button type="button" class="text-link" data-act="update">Post update</button>
-          <button type="button" class="text-link" data-act="copy">Copy tracking link</button>
-          <a class="text-link" href="/invoice">Invoice</a>
+        <div class="admin-row">
+          <label class="admin-status">Status
+            <select data-act="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === p.status ? ' selected' : ''}>${v}</option>`).join('')}</select>
+          </label>
+          <div class="admin-actions">
+            <button type="button" class="text-link" data-act="update">Post update</button>
+            <button type="button" class="text-link" data-act="edit">Edit</button>
+            <button type="button" class="text-link" data-act="copy">Copy tracking link</button>
+            <a class="text-link" href="/track?code=${encodeURIComponent(p.code)}" target="_blank">View as client</a>
+          </div>
         </div>
         <div class="update-slot"></div>
         <ol class="admin-updates">${p.updates.slice(0, 4).map((u) => `<li><span class="muted">${fmtDate(u.created_at)}</span> ${esc(u.title)} <span class="mono muted">${u.progress}%</span></li>`).join('')}</ol>
       </article>`;
 
-    const loadProjects = async () => {
-      const list = await A('/api/admin/projects').catch((e) => (toast(e.message), []));
-      $('#projectList').innerHTML = list.length ? list.map(projectCard).join('') : empty('projects');
+    const renderProjects = () => {
+      const list = projects.filter((p) => filter === 'all' || p.status === filter);
+      $('#projectList').innerHTML = list.length ? list.map(projectCard).join('') : empty(filter === 'all' ? 'projects' : STATUS[filter].toLowerCase() + ' projects');
     };
+    const loadProjects = async () => {
+      projects = await A('/api/admin/projects').catch((e) => (toast(e.message), []));
+      renderProjects();
+    };
+    $('#projectFilter').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-f]');
+      if (!b) return;
+      filter = b.dataset.f;
+      $$('#projectFilter button').forEach((x) => x.classList.toggle('on', x === b));
+      renderProjects();
+    });
 
-    $('#projectList').addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-act]');
-      if (!btn) return;
-      const card = btn.closest('.admin-card'), code = card.dataset.code;
-      if (btn.dataset.act === 'copy') {
-        const text = `Track your project at ${trackLink(code)} using code ${code} and your email.`;
-        try { await navigator.clipboard.writeText(text); toast('Tracking message copied'); } catch { toast(text); }
-        return;
-      }
-      const slot = $('.update-slot', card);
-      if (slot.firstChild) { slot.innerHTML = ''; return; }
+    const patch = (code, body) => A(`/api/admin/projects/${encodeURIComponent(code)}`, { method: 'PATCH', body });
+
+    $('#projectList').addEventListener('change', async (e) => {
+      if (e.target.dataset.act !== 'status') return;
+      const code = e.target.closest('.admin-card').dataset.code;
+      try { await patch(code, { status: e.target.value }); toast(`Marked ${STATUS[e.target.value].toLowerCase()}`); loadProjects(); }
+      catch (err) { toast(err.message); }
+    });
+
+    const updateForm = (p) => {
       const form = $('#updateTpl').content.firstElementChild.cloneNode(true);
       form.stage.innerHTML = Object.entries(STAGES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-      const cur = card.querySelector('.admin-card-meta');
-      const stageKey = Object.keys(STAGES).find((k) => STAGES[k] === cur.children[2].textContent) || 'build';
-      form.stage.value = stageKey;
-      form.progress.value = parseInt(cur.children[1].textContent, 10) || 0;
+      form.stage.value = p.stage;
+      form.progress.value = p.progress;
       const sync = () => form.pctOut.value = form.progress.value + '%';
       form.progress.addEventListener('input', sync); sync();
       form.stage.addEventListener('change', () => { if (form.stage.value === 'done') { form.progress.value = 100; sync(); } });
@@ -193,14 +237,54 @@
         ev.preventDefault();
         if (!form.title.value.trim()) return form.title.closest('.field').classList.add('invalid');
         try {
-          await A(`/api/admin/projects/${encodeURIComponent(code)}/updates`, { method: 'POST', body: {
+          await A(`/api/admin/projects/${encodeURIComponent(p.code)}/updates`, { method: 'POST', body: {
             title: form.title.value.trim(), body: form.body.value.trim(), stage: form.stage.value,
-            progress: Number(form.progress.value), link: form.link.value.trim(),
+            progress: Number(form.progress.value), link: form.link.value.trim(), notify: form.notify.checked,
           } });
-          toast('Update posted');
+          toast(form.notify.checked ? 'Update posted and emailed' : 'Update posted');
           loadProjects();
         } catch (err) { toast(err.message); }
       });
+      return form;
+    };
+
+    const editForm = (p) => {
+      const form = $('#editTpl').content.firstElementChild.cloneNode(true);
+      ['title', 'client_name', 'client_email', 'summary'].forEach((k) => form[k].value = p[k] || '');
+      form.due_date.value = p.due_date || '';
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        try {
+          await patch(p.code, {
+            title: form.title.value.trim(), client_name: form.client_name.value.trim(),
+            client_email: form.client_email.value.trim(), summary: form.summary.value.trim(), due_date: form.due_date.value || null,
+          });
+          toast('Saved'); loadProjects();
+        } catch (err) { toast(err.message); }
+      });
+      $('[data-act=delete]', form).addEventListener('click', async () => {
+        if (!confirm(`Delete "${p.title}" and all its updates? This can't be undone.`)) return;
+        try { await A(`/api/admin/projects/${encodeURIComponent(p.code)}`, { method: 'DELETE' }); toast('Deleted'); loadProjects(); }
+        catch (err) { toast(err.message); }
+      });
+      return form;
+    };
+
+    $('#projectList').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn || btn.closest('.update-slot')) return;
+      const card = btn.closest('.admin-card'), p = byCode(card.dataset.code);
+      if (btn.dataset.act === 'copy') {
+        const text = `Track your project at ${trackLink(p.code)} using code ${p.code} and your email.`;
+        try { await navigator.clipboard.writeText(text); toast('Tracking message copied'); } catch { toast(text); }
+        return;
+      }
+      const slot = $('.update-slot', card);
+      const same = slot.dataset.open === btn.dataset.act;
+      slot.innerHTML = ''; slot.dataset.open = '';
+      if (same) return;
+      slot.dataset.open = btn.dataset.act;
+      const form = btn.dataset.act === 'edit' ? editForm(p) : updateForm(p);
       slot.append(form);
       form.title.focus();
     });
@@ -208,20 +292,29 @@
     const np = $('#newProject');
     np.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const need = ['title', 'client_name', 'client_email'];
       let ok = true;
-      need.forEach((n) => { const bad = !np[n].value.trim() || (n === 'client_email' && !np[n].checkValidity()); np[n].closest('.field').classList.toggle('invalid', bad); ok = ok && !bad; });
+      ['title', 'client_name', 'client_email'].forEach((n) => { const bad = !np[n].value.trim() || (n === 'client_email' && !np[n].checkValidity()); np[n].closest('.field').classList.toggle('invalid', bad); ok = ok && !bad; });
       if (!ok) return;
       try {
         const p = await A('/api/admin/projects', { method: 'POST', body: {
           title: np.title.value.trim(), client_name: np.client_name.value.trim(), client_email: np.client_email.value.trim(),
           summary: np.summary.value.trim(), due_date: np.due_date.value || null, quote_number: np.quote_number.value.trim() || null,
+          notify: np.notify.checked,
         } });
+        const mailed = np.notify.checked;
         np.reset();
         $('#npDone').hidden = false;
-        $('#npDone').innerHTML = `Created <strong class="mono">${esc(p.code)}</strong>. Send the client: <span class="mono">${esc(trackLink(p.code))}</span>`;
+        $('#npDone').innerHTML = `Created <strong class="mono">${esc(p.code)}</strong>.${mailed ? ' The client has been emailed their code.' : ''} Tracking link: <span class="mono">${esc(trackLink(p.code))}</span>`;
         loadProjects();
       } catch (err) { toast(err.message); }
+    });
+
+    /* ── Email ── */
+    $('#testMail').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      try { const r = await A('/api/admin/email-test', { method: 'POST' }); toast(`Sent ${r.sent} sample emails to ${r.to}`); }
+      catch (err) { toast(err.message); }
+      finally { e.target.disabled = false; }
     });
 
     /* ── Quotes ── */

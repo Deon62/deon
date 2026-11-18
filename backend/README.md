@@ -2,14 +2,32 @@
 
 FastAPI backend for deon.ardena.co.ke: quote requests, invoices, M-Pesa payments through PayHero, receipts, and client project tracking.
 
+## Database: Supabase
+
+1. Create a project at https://supabase.com (region: closest to Frankfurt, e.g. `eu-central-1`).
+2. **Project Settings > Database > Connection string**, pick **Session pooler**, copy the URI and put your database password in it:
+   `postgresql://postgres.<ref>:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`
+3. Set that as `DATABASE_URL` on Render. Tables are created on the next boot.
+
+Use the Session pooler, not the "Direct connection": the direct host is IPv6-only and Render can't reach it.
+
+## Email: Resend
+
+1. At https://resend.com, **Domains > Add domain**: `deon.ardena.co.ke` (or `ardena.co.ke`), and add the DNS records it shows wherever ardena.co.ke's DNS is managed. Wait for "Verified".
+2. **API Keys > Create**, with "Sending access".
+3. On Render set `RESEND_API_KEY`, and `EMAIL_FROM` to an address on the verified domain, e.g. `Deon Orina <hello@deon.ardena.co.ke>`.
+4. Open `/admin` and press **Send test emails**: a sample of each client email lands in `NOTIFY_EMAIL`.
+
+Emails sent: quote received (client + you), project started with tracking code, progress updates (toggle per update), invoice with a Pay button (toggle), payment receipt (client + you).
+
 ## Deploy on Render
 
-1. In Render: **New > Blueprint**, pick the `Deon62/deon` repo. `render.yaml` creates the `deon-api` web service and the `deon-db` Postgres database.
-2. When asked, fill in `PAYHERO_API_USERNAME`, `PAYHERO_API_PASSWORD` and `PAYHERO_CHANNEL_ID` (PayHero dashboard > API Keys / Payment Channels).
-3. `ADMIN_KEY` and `PAYHERO_CALLBACK_SECRET` are generated for you. Copy `ADMIN_KEY` from the service's Environment tab: it opens `/admin` and the invoice builder.
-4. If Render gives the service a URL other than `https://deon-api.onrender.com`, update `PUBLIC_API_URL` here and `API` at the top of `script.js`.
+The service runs at https://deon-api.onrender.com from `render.yaml` (root dir `backend`). Environment variables:
+`DATABASE_URL`, `ADMIN_KEY`, `PAYHERO_API_USERNAME`, `PAYHERO_API_PASSWORD`, `PAYHERO_CHANNEL_ID`, `PAYHERO_CALLBACK_SECRET`,
+`RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_API_URL`, `CORS_ORIGINS`. `/health` shows whether payments, email and Postgres are on.
 
-Payments stay switched off (the pay page says so) until the three PayHero values are set.
+A sample project is created on boot so anyone can try the tracker: code `DO-DEMO01`, email `demo@deon.ardena.co.ke`
+(or just open `/track?demo=1`). Set `SEED_DEMO=false` to stop that.
 
 ## Run locally
 
@@ -45,4 +63,4 @@ Admin (header `X-Admin-Key`): `/api/admin/quotes`, `/api/admin/invoices`, `/api/
 
 - Tables are created on startup. If you later change a column, add Alembic migrations.
 - Render's free web service sleeps when idle; the first request after a quiet spell takes up to a minute. Pages ping `/health` on load to wake it early. Upgrade to a paid instance before relying on it for payments.
-- Render's free Postgres expires after a trial period. Check the current terms and move to a paid database before real client data goes in.
+- Supabase's free plan pauses a project after a week with no activity; the site's traffic normally keeps it awake.

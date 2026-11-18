@@ -676,3 +676,24 @@ html.no-scroll, html.no-scroll body { height: 100%; overflow: hidden; }
   .admin-bar-right { margin-left: 0; }
 }
 .update-form input[type=range] { accent-color: var(--green); width: 100%; }
+
+/* Tracker: status badge + sample link */
+.track-status { display: inline-block; margin-top: 14px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+.track-status.paused { background: #FBF1E2; color: var(--amber); }
+.track-status.completed { background: var(--green-soft); color: var(--green); }
+.track-sample { margin-top: 28px; font-size: 15px; color: var(--muted); }
+
+/* Admin: status, filters, email */
+.admin-pill { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 999px; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; background: var(--green-soft); color: var(--green); }
+.admin-pill.off { background: #FBF1E2; color: var(--amber); }
+.admin-filter { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.admin-filter button { border: 1px solid var(--border); background: var(--white); font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); }
+.admin-filter button.on { border-color: var(--ink); color: var(--ink); }
+.admin-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-status { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.admin-status select { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); color: var(--ink); }
+.admin-card.status-paused { border-left: 3px solid var(--amber); }
+.admin-card.status-completed { border-left: 3px solid var(--green); }
+.admin-card.status-completed .meter-bar i { background: var(--mint); }
+.text-link.danger { color: var(--red); }
+.admin-actions button.text-link, .admin-row button.text-link { background: none; border-top: 0; border-left: 0; border-right: 0; font: inherit; cursor: pointer; padding: 0; }

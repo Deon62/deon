@@ -241,10 +241,10 @@
 
       btn.disabled = true;
       btn.textContent = 'Sending…';
-      // Saved to the backend for tracking; Formspree emails it to me. Either one is enough to go through.
+      // The backend saves it and emails both of us. Formspree is only a fallback if the API is unreachable.
       const saved = await api('/api/quotes', { method: 'POST', body: quote }).catch(() => null);
       const ref = saved?.number || '';
-      const sent = await sendForm({
+      const sent = saved ? true : await sendForm({
         _subject: `Quote request ${ref} from ${quote.name}`,
         reference: ref || 'Not saved to backend',
         name: quote.name,

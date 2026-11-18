@@ -71,12 +71,14 @@
           <button class="btn btn-ink btn-full" type="submit">Show progress</button>
           <p class="field-hint">Lost your code? Email <a href="mailto:ceo@ardena.co.ke">ceo@ardena.co.ke</a> and I'll resend it.</p>
         </form>
+        <p class="track-sample">Not a client yet? <a class="text-link" href="/track?demo=1">See a sample project</a></p>
       </section>
 
       <!-- Project -->
       <section id="project" hidden aria-live="polite">
         <div class="track-head">
           <p class="mono muted" id="pCode"></p>
+          <span class="track-status" id="pStatus" hidden></span>
           <h1 class="type-statement" id="pTitle"></h1>
           <p class="type-lede muted" id="pSummary"></p>
         </div>
@@ -125,6 +127,10 @@
       document.title = `${p.title} | Project tracker`;
       $('#pCode').textContent = `${p.code} · for ${p.client_name}`;
       $('#pTitle').textContent = p.title;
+      const ST = { paused: 'On hold', completed: 'Completed' };
+      $('#pStatus').hidden = !ST[p.status];
+      $('#pStatus').textContent = ST[p.status] || '';
+      $('#pStatus').className = 'track-status ' + p.status;
       $('#pSummary').textContent = p.summary;
       $('#pSummary').hidden = !p.summary;
       $('#pStage').textContent = p.stages.find((s) => s.key === p.stage)?.label || p.stage;
@@ -198,6 +204,7 @@
     });
 
     // ?code=DO-XXXXXX prefills the code (safe to share; the email is still needed).
+    if (params().demo) return lookup('DO-DEMO01', 'demo@deon.ardena.co.ke');
     const pre = params().code;
     if (pre) form.code.value = pre.toUpperCase();
     const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');

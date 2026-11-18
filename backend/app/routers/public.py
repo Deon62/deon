@@ -4,11 +4,11 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from .. import payhero
+from .. import emails, payhero
 from ..config import get_settings
 from ..db import get_db
 from ..models import STAGES, Invoice, Payment, Project, Quote
@@ -42,10 +42,13 @@ def aware(dt: datetime) -> datetime:
 
 # ── Quotes ──────────────────────────────────────────────────────────────
 @router.post("/quotes", status_code=201, dependencies=[Depends(quote_limit)])
-def create_quote(body: QuoteIn, db: Session = Depends(get_db)) -> dict:
+def create_quote(body: QuoteIn, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
     quote = Quote(number=next_number(db, Quote.number, "QT"), **body.model_dump())
     db.add(quote)
     db.commit()
+    data = {**body.model_dump(), "email": str(body.email), "number": quote.number}
+    bg.add_task(emails.send, data["email"], *emails.quote_received(data))
+    bg.add_task(emails.send, get_settings().notify_email, *emails.quote_notify(data), reply_to=data["email"])
     return {"number": quote.number}
 
 
@@ -117,7 +120,7 @@ async def start_payment(body: PaymentIn, db: Session = Depends(get_db)):
     return PaymentStarted(reference=payment.reference, amount=amount)
 
 
-def mark_success(db: Session, p: Payment, mpesa_code: str) -> None:
+def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks) -> None:
     if p.status == "success":
         return
     p.status = "success"
@@ -128,6 +131,15 @@ def mark_success(db: Session, p: Payment, mpesa_code: str) -> None:
     p.receipt_token = secrets.token_urlsafe(18)
     db.commit()
     log.info("payment %s succeeded: KES %s, receipt %s", p.reference, p.amount, p.receipt_number)
+    inv = p.invoice
+    data = {
+        "name": p.name, "email": p.email, "phone": p.phone, "amount": p.amount, "description": p.description,
+        "mpesa_code": p.mpesa_code, "receipt_number": p.receipt_number, "receipt_token": p.receipt_token,
+        "paid_at": p.paid_at, "invoice": inv.number if inv else None, "balance": inv.balance if inv else 0,
+        "project_code": inv.project.code if inv and inv.project else None,
+    }
+    bg.add_task(emails.send, p.email, *emails.payment_receipt(data))
+    bg.add_task(emails.send, get_settings().notify_email, *emails.payment_notify(data), reply_to=p.email)
 
 
 def mark_failed(db: Session, p: Payment, message: str) -> None:
@@ -139,7 +151,7 @@ def mark_failed(db: Session, p: Payment, message: str) -> None:
 
 
 @router.get("/payments/{reference}", response_model=PaymentStatus)
-async def payment_status(reference: str, db: Session = Depends(get_db)):
+async def payment_status(reference: str, bg: BackgroundTasks, db: Session = Depends(get_db)):
     p = db.scalar(select(Payment).where(Payment.reference == reference))
     if not p:
         raise HTTPException(404, "Payment not found.")
@@ -148,14 +160,14 @@ async def payment_status(reference: str, db: Session = Depends(get_db)):
         age = datetime.now(timezone.utc) - aware(p.created_at)
         if p.payhero_reference.startswith("MOCK-"):
             if age > timedelta(seconds=4):
-                mark_success(db, p, "MOCK" + random_code(6))
+                mark_success(db, p, "MOCK" + random_code(6), bg)
         elif age > STATUS_CHECK_AFTER and p.payhero_reference:
             # Callback hasn't arrived yet; ask PayHero directly.
             try:
                 res = await payhero.transaction_status(p.payhero_reference)
                 st = str(res.get("status", "")).upper()
                 if st == "SUCCESS":
-                    mark_success(db, p, res.get("provider_reference") or res.get("third_party_reference") or "")
+                    mark_success(db, p, res.get("provider_reference") or res.get("third_party_reference") or "", bg)
                 elif st == "FAILED":
                     mark_failed(db, p, "The payment was cancelled or did not go through.")
             except payhero.PayHeroError as e:
@@ -170,7 +182,7 @@ async def payment_status(reference: str, db: Session = Depends(get_db)):
 
 
 @router.post("/payhero/callback/{secret}", include_in_schema=False)
-async def payhero_callback(secret: str, request: Request, db: Session = Depends(get_db)) -> dict:
+async def payhero_callback(secret: str, request: Request, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
     expected = get_settings().payhero_callback_secret
     if not expected or not secrets.compare_digest(secret, expected):
         raise HTTPException(404)
@@ -193,7 +205,7 @@ async def payhero_callback(secret: str, request: Request, db: Session = Depends(
     ok = str(r.get("ResultCode")) == "0" and str(r.get("Status", "")).lower() == "success"
     paid = int(float(r.get("Amount") or 0))
     if ok and paid == p.amount:
-        mark_success(db, p, str(r.get("MpesaReceiptNumber") or ""))
+        mark_success(db, p, str(r.get("MpesaReceiptNumber") or ""), bg)
     elif ok:
         log.error("amount mismatch on %s: expected %s got %s", p.reference, p.amount, paid)
         mark_failed(db, p, "Amount mismatch. Please contact me.")
@@ -250,7 +262,7 @@ def track(body: TrackIn, db: Session = Depends(get_db)):
         for i, k in enumerate(keys)
     ]
     return TrackOut(
-        code=p.code, title=p.title, client_name=p.client_name, summary=p.summary, stage=p.stage,
+        code=p.code, title=p.title, client_name=p.client_name, summary=p.summary, stage=p.stage, status=p.status,
         progress=p.progress, due_date=p.due_date, started=p.created_at, updated=p.updated_at,
         stages=stages, updates=p.updates, invoices=p.invoices,
     )
