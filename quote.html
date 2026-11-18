@@ -72,6 +72,7 @@
         <a href="/about">About</a>
         <a href="/quote" class="active">Get a quote</a>
         <a href="/pay">Pay</a>
+        <a href="/track">Track</a>
       </div>
       <div class="nav-right">
         <a href="/quote" class="btn btn-sm">Start a project</a>
@@ -85,6 +86,7 @@
     <a href="/about">About</a>
     <a href="/quote" class="active">Get a quote</a>
     <a href="/pay">Pay</a>
+    <a href="/track">Track</a>
     <a href="/quote" class="btn">Start a project</a>
   </div>
 
@@ -135,7 +137,7 @@
 
         <aside class="sticky hero-anim" style="animation-delay:.32s">
           <div class="panel" id="estimatePanel">
-            <div class="panel-title"><h2>Your request</h2><span class="muted mono" id="estRef"></span></div>
+            <div class="panel-title"><h2>Your request</h2></div>
             <div class="rows" id="estRows"></div>
             <ol class="next-steps">
               <li>I review your request and reply with any questions.</li>
@@ -193,8 +195,7 @@
     first.checked = true;
 
     const form = $('#quoteForm');
-    const ref = nextNumber('QT', 'quotes');
-    $('#estRef').textContent = ref;
+    wakeApi();
 
     const selection = () => ({
       types: $$('input[name=type]:checked').map((i) => SERVICES.find((s) => s.id === i.value)),
@@ -233,17 +234,19 @@
       const e = selection();
       const btn = form.querySelector('button[type=submit]');
       const quote = {
-        ref, created: Date.now(),
-        types: e.types.map((t) => t.id), extras: e.extras.map((x) => x.id), timeline: e.tl,
+        services: e.types.map((t) => t.id), extras: e.extras.map((x) => x.id), timeline: e.tl,
         brief: form.brief.value.trim(), name: form.name.value.trim(), company: form.company.value.trim(),
         email: form.email.value.trim(), phone: form.phone.value.trim(),
       };
 
       btn.disabled = true;
       btn.textContent = 'Sending…';
+      // Saved to the backend for tracking; Formspree emails it to me. Either one is enough to go through.
+      const saved = await api('/api/quotes', { method: 'POST', body: quote }).catch(() => null);
+      const ref = saved?.number || '';
       const sent = await sendForm({
         _subject: `Quote request ${ref} from ${quote.name}`,
-        reference: ref,
+        reference: ref || 'Not saved to backend',
         name: quote.name,
         company: quote.company,
         email: quote.email,
@@ -253,15 +256,16 @@
         timeline: e.tl,
         brief: quote.brief,
       });
-      if (!sent) {
+      if (!sent && !saved) {
         btn.disabled = false;
         btn.textContent = 'Send request';
         return toast('Could not send. Check your connection and try again');
       }
-      store.put('quotes', ref, quote);
 
       $('#doneName').textContent = form.name.value.trim().split(' ')[0];
       $('#doneRef').textContent = ref;
+      $('#doneRef').parentElement.hidden = false;
+      if (!ref) $('#doneRef').closest('p').innerHTML = `Thanks, ${esc(quote.name.split(' ')[0])}. Your request is in. You'll get a fixed quote by email within 24 hours.`;
       $('#estimatePanel').style.display = 'none';
       $('#quoteDone').classList.add('show');
       $('#quoteDone').scrollIntoView({ behavior: 'smooth', block: 'center' });

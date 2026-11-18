@@ -14,7 +14,7 @@
       ]
     },
     {
-      "source": "/(invoice|receipt)",
+      "source": "/(invoice|receipt|admin)",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     }
   ]

@@ -30,6 +30,7 @@
         <a href="/about">About</a>
         <a href="/quote">Get a quote</a>
         <a href="/pay">Pay</a>
+        <a href="/track">Track</a>
       </div>
       <div class="nav-right">
         <a href="/quote" class="btn btn-sm">Start a project</a>
@@ -43,6 +44,7 @@
     <a href="/about">About</a>
     <a href="/quote">Get a quote</a>
     <a href="/pay">Pay</a>
+    <a href="/track">Track</a>
     <a href="/quote" class="btn">Start a project</a>
   </div>
 
@@ -53,11 +55,12 @@
       <section id="lookup" hidden>
         <div class="page-head">
           <h1 class="type-statement hero-anim" style="animation-delay:.08s">Find a receipt.</h1>
-          <p class="type-lede muted hero-anim" style="animation-delay:.16s">Enter the receipt number from your confirmation email.</p>
+          <p class="type-lede muted hero-anim" style="animation-delay:.16s">Enter your receipt number and the M-Pesa code from your confirmation SMS.</p>
         </div>
         <form class="panel form hero-anim" id="lookupForm" style="animation-delay:.24s" novalidate>
           <div class="field"><label for="r-id">Receipt number</label><input id="r-id" name="id" class="mono" placeholder="RCT-2026-0001" required /></div>
-          <p class="field-hint" id="lookupMsg" hidden style="color:var(--red)">No receipt found with that number.</p>
+          <div class="field"><label for="r-code">M-Pesa code</label><input id="r-code" name="code" class="mono" placeholder="SKL4Q8XZ2P" autocomplete="off" required /></div>
+          <p class="field-hint" id="lookupMsg" hidden style="color:var(--red)">No receipt matches that number and M-Pesa code.</p>
           <button class="btn btn-ink btn-full" type="submit">Show receipt</button>
         </form>
       </section>
@@ -80,19 +83,19 @@
     const show = (r) => {
       $('#lookup').hidden = true;
       $('#receiptView').hidden = false;
-      document.title = `Receipt ${r.id} | Deon`;
+      document.title = `Receipt ${r.number} | Deon`;
       $('#doc').innerHTML = `
         <header class="doc-head">
           <div class="doc-brand">
             <span class="nav-logo">deon<span>.</span></span>
             <p>${BUSINESS.title}<br>${BUSINESS.email} · ${BUSINESS.phone}<br>${BUSINESS.location}${BUSINESS.pin ? ' · PIN ' + BUSINESS.pin : ''}</p>
           </div>
-          <div class="doc-kind"><h2>Receipt</h2><p class="mono">${esc(r.id)}</p></div>
+          <div class="doc-kind"><h2>Receipt</h2><p class="mono">${esc(r.number)}</p></div>
         </header>
         <div class="doc-meta">
           <div><span class="type-label">Received from</span><p>${esc(r.name)}<br>${esc(r.email)}<br>+${esc(r.phone)}</p></div>
-          <div><span class="type-label">Paid on</span><p>${fmtDateTime(r.paidAt)}</p></div>
-          <div><span class="type-label">Method</span><p>M-Pesa<br><span class="mono">${esc(r.mpesaCode)}</span></p></div>
+          <div><span class="type-label">Paid on</span><p>${fmtDateTime(r.paid_at)}</p></div>
+          <div><span class="type-label">Method</span><p>M-Pesa<br><span class="mono">${esc(r.mpesa_code)}</span></p></div>
         </div>
         <table class="doc-table">
           <thead><tr><th>Description</th><th>Amount</th></tr></thead>
@@ -108,24 +111,35 @@
     };
 
     const DEMO = {
-      id: 'RCT-2026-0000', name: 'Jane Wanjiku', email: 'jane@acme.co.ke', phone: '254712345678',
+      number: 'RCT-2026-0000', name: 'Jane Wanjiku', email: 'jane@acme.co.ke', phone: '254712345678',
       amount: 60000, description: 'Invoice INV-2026-0001 (50% deposit)', invoice: 'INV-2026-0001',
-      mpesaCode: 'SKL4Q8XZ2P', paidAt: Date.now(),
+      mpesa_code: 'SKL4Q8XZ2P', paid_at: new Date().toISOString(),
+    };
+    const openLookup = (msg) => {
+      $('#lookup').hidden = false;
+      $('#lookupMsg').hidden = !msg;
+      if (msg) $('#lookupMsg').textContent = msg;
     };
 
     const { id, demo } = params();
-    // TODO(backend): GET /api/receipts/:id instead of the local store.
-    const r = demo ? DEMO : id ? store.find('receipts', id.toUpperCase()) : null;
-    if (r) return show(r);
+    if (demo) return show(DEMO);
+    if (id) {
+      api('/api/receipts/' + encodeURIComponent(id)).then(show).catch((e) => openLookup(e.status === 404 ? 'That receipt link is not valid. Look it up below.' : e.message));
+    } else openLookup();
 
-    $('#lookup').hidden = false;
-    if (id) { $('#r-id').value = id; $('#lookupMsg').hidden = false; }
-    $('#lookupForm').addEventListener('submit', (e) => {
+    $('#lookupForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const found = store.find('receipts', $('#r-id').value.trim().toUpperCase());
-      if (!found) { $('#lookupMsg').hidden = false; return; }
-      history.replaceState(null, '', '?id=' + encodeURIComponent(found.id));
-      show(found);
+      const number = $('#r-id').value.trim(), code = $('#r-code').value.trim();
+      if (!number || !code) return openLookup('Enter both the receipt number and the M-Pesa code.');
+      const btn = e.submitter; if (btn) btn.disabled = true;
+      try {
+        const { token } = await api('/api/receipts/lookup', { method: 'POST', body: { number, mpesa_code: code } });
+        const r = await api('/api/receipts/' + encodeURIComponent(token));
+        history.replaceState(null, '', '?id=' + encodeURIComponent(token));
+        show(r);
+      } catch (err) {
+        openLookup(err.status === 404 ? 'No receipt matches that number and M-Pesa code.' : err.message);
+      } finally { if (btn) btn.disabled = false; }
     });
   })();
   </script>

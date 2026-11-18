@@ -1,7 +1,7 @@
 /* =====================================================================
    DEON — shared script
-   Nav, reveal, formatting helpers, the service catalogue, a tiny local
-   store (stand-in for the backend), and the home hero animation.
+   Nav, reveal, formatting helpers, the service catalogue, the API
+   client, and the home hero animation.
    ===================================================================== */
 
 /* ── Business details: edit these ── */
@@ -44,16 +44,32 @@ const normalisePhone = (raw) => {
   return m ? '254' + m[1] : null;
 };
 
-/* Local store: a stand-in until the backend exists. */
-const store = {
-  get(key) { try { return JSON.parse(localStorage.getItem('deon.' + key)) || {}; } catch { return {}; } },
-  put(key, id, value) { const all = store.get(key); all[id] = value; localStorage.setItem('deon.' + key, JSON.stringify(all)); return value; },
-  find(key, id) { return store.get(key)[id] || null; },
+/* ── Backend (FastAPI on Render). Local pages talk to a local API. ── */
+const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+  ? 'http://localhost:8000'
+  : 'https://deon-api.onrender.com';
+
+/* Calls the API and returns JSON. Throws an Error with a readable message. */
+const api = async (path, { method = 'GET', body, admin = false } = {}) => {
+  const headers = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (admin) headers['X-Admin-Key'] = localStorage.getItem('deon.adminKey') || '';
+  let res;
+  try {
+    res = await fetch(API + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch {
+    throw Object.assign(new Error('Could not reach the server. Check your connection and try again.'), { status: 0 });
+  }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) {
+    const d = data?.detail;
+    const msg = typeof d === 'string' ? d : Array.isArray(d) ? 'Please check the highlighted details.' : 'Something went wrong. Please try again.';
+    throw Object.assign(new Error(msg), { status: res.status, data });
+  }
+  return data;
 };
-const nextNumber = (prefix, key) => {
-  const n = Object.keys(store.get(key)).length + 1;
-  return `${prefix}-${new Date().getFullYear()}-${String(n).padStart(4, '0')}`;
-};
+/* The free Render plan sleeps when idle: wake it as soon as a page that needs it opens. */
+const wakeApi = () => fetch(API + '/health').catch(() => {});
 
 /* Form submissions go to Formspree. Returns true on success. */
 const FORMSPREE = 'https://formspree.io/f/xbgoyawp';
@@ -105,7 +121,6 @@ const toast = (msg) => {
    MOTION — quiet details, all off under reduced motion
    ===================================================================== */
 const MOTION_OK = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-const FINE_POINTER = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 /* ── Headlines rise in line by line from behind a mask ── */
 (() => {
@@ -161,41 +176,6 @@ const FINE_POINTER = matchMedia('(hover: hover) and (pointer: fine)').matches;
   addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
   addEventListener('resize', update);
   update();
-})();
-
-/* ── Selected work: a live preview follows the cursor over each project ── */
-(() => {
-  const rows = $$('[data-preview]');
-  if (!rows.length || !FINE_POINTER || !MOTION_OK) return;
-  const box = document.createElement('div');
-  box.className = 'work-preview';
-  box.setAttribute('aria-hidden', 'true');
-  box.innerHTML = '<img alt="" />';
-  document.body.append(box);
-  const img = box.firstChild;
-  rows.forEach((r) => { const i = new Image(); i.src = r.dataset.preview; }); // preload
-
-  let x = 0, y = 0, tx = 0, ty = 0, raf = 0, active = false;
-  const loop = () => {
-    const dx = tx - x;
-    x += dx * 0.16; y += (ty - y) * 0.16;
-    const tilt = Math.max(-10, Math.min(10, dx * 0.12));
-    box.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${tilt}deg)`;
-    raf = active || Math.abs(dx) > 0.5 ? requestAnimationFrame(loop) : 0;
-  };
-  const move = (e) => { tx = Math.min(e.clientX + 120, innerWidth - 190); ty = e.clientY; if (!raf) raf = requestAnimationFrame(loop); };
-  rows.forEach((r) => {
-    r.addEventListener('pointerenter', (e) => {
-      if (!active) { x = tx = e.clientX + 120; y = ty = e.clientY; }
-      active = true;
-      img.src = r.dataset.preview;
-      box.classList.add('show');
-      move(e);
-    });
-    r.addEventListener('pointermove', move);
-    r.addEventListener('pointerleave', () => { active = false; box.classList.remove('show'); });
-  });
-  addEventListener('scroll', () => { if (active) { active = false; box.classList.remove('show'); } }, { passive: true });
 })();
 
 /* ── About: the portrait assembles from green halftone dots, then resolves ── */

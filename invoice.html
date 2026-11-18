@@ -30,6 +30,7 @@
         <a href="/about">About</a>
         <a href="/quote">Get a quote</a>
         <a href="/pay">Pay</a>
+        <a href="/track">Track</a>
       </div>
       <div class="nav-right">
         <a href="/quote" class="btn btn-sm">Start a project</a>
@@ -43,6 +44,7 @@
     <a href="/about">About</a>
     <a href="/quote">Get a quote</a>
     <a href="/pay">Pay</a>
+    <a href="/track">Track</a>
     <a href="/quote" class="btn">Start a project</a>
   </div>
 
@@ -56,7 +58,11 @@
       <div class="split" style="grid-template-columns:minmax(0,5fr) minmax(0,7fr)">
         <form class="panel form no-print" id="invForm" novalidate>
           <div class="form-row">
-            <div class="field"><label for="i-number">Invoice no.</label><input id="i-number" name="number" class="mono" /></div>
+            <div class="field"><label for="i-key">Admin key</label><input id="i-key" type="password" autocomplete="current-password" placeholder="From Render: ADMIN_KEY" /></div>
+            <div class="field"><label for="i-project">Project code <span class="opt">(optional)</span></label><input id="i-project" name="project" class="mono" placeholder="DO-XXXXXX" autocomplete="off" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label for="i-number">Invoice no.</label><input id="i-number" name="number" class="mono" placeholder="Auto" /></div>
             <div class="field"><label for="i-due">Due in</label>
               <select id="i-due" name="due">
                 <option value="0">On receipt</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option>
@@ -101,7 +107,13 @@
   (() => {
     const form = $('#invForm');
     const itemsEl = $('#items');
-    form.number.value = nextNumber('INV', 'invoices');
+    const keyInput = $('#i-key');
+    keyInput.value = localStorage.getItem('deon.adminKey') || '';
+    const loadNumber = () => api('/api/admin/invoices/next-number', { admin: true })
+      .then((r) => { if (!form.number.value) { form.number.placeholder = r.number; render(); } })
+      .catch(() => {});
+    keyInput.addEventListener('change', () => { localStorage.setItem('deon.adminKey', keyInput.value.trim()); loadNumber(); });
+    wakeApi();
 
     const addLine = (desc = '', qty = 1, rate = '') => {
       const row = document.createElement('div');
@@ -128,7 +140,7 @@
       const vat = form.vat.checked ? Math.round(subtotal * 0.16) : 0;
       const issued = Date.now();
       return {
-        number: form.number.value.trim().toUpperCase(),
+        number: (form.number.value.trim() || form.number.placeholder).toUpperCase(),
         issued, due: issued + Number(form.due.value) * 864e5, dueDays: Number(form.due.value),
         client: { name: form.clientName.value.trim(), company: form.clientCompany.value.trim(), email: form.clientEmail.value.trim(), phone: form.clientPhone.value.trim() },
         items, subtotal, vat, total: subtotal + vat, notes: form.notes.value.trim(),
@@ -173,6 +185,7 @@
     form.addEventListener('change', render);
     $('#addLine').addEventListener('click', () => { addLine(); render(); $$('[data-k=desc]', itemsEl).pop().focus(); });
     render();
+    if (keyInput.value) loadNumber();
 
     $('#printBtn').addEventListener('click', () => print());
 
@@ -182,11 +195,27 @@
       if (!inv.total) return toast('Add at least one line item with a rate');
       form.clientName.closest('.field').classList.remove('invalid');
 
-      // TODO(backend): POST /api/invoices and email the client the link.
-      store.put('invoices', inv.number, inv);
-      const link = new URL('/pay?inv=' + encodeURIComponent(inv.number), location.href).href;
-      try { await navigator.clipboard.writeText(link); toast('Saved. Payment link copied'); }
-      catch { toast('Saved. Link: ' + link); }
+      if (!keyInput.value.trim()) { keyInput.focus(); return toast('Enter your admin key first'); }
+      localStorage.setItem('deon.adminKey', keyInput.value.trim());
+      const btn = $('#saveBtn');
+      btn.disabled = true;
+      try {
+        const saved = await api('/api/admin/invoices', { method: 'POST', admin: true, body: {
+          number: form.number.value.trim() || null,
+          project_code: form.project.value.trim() || null,
+          client_name: inv.client.name, client_company: inv.client.company,
+          client_email: inv.client.email, client_phone: inv.client.phone,
+          items: inv.items.filter((i) => i.desc && i.qty > 0), vat: form.vat.checked,
+          notes: inv.notes, due_days: inv.dueDays,
+        } });
+        form.number.value = saved.number;
+        render();
+        const link = location.origin + '/pay?inv=' + encodeURIComponent(saved.number);
+        try { await navigator.clipboard.writeText(link); toast(`Saved ${saved.number}. Payment link copied`); }
+        catch { toast('Saved. Link: ' + link); }
+      } catch (err) {
+        toast(err.status === 401 ? 'Wrong admin key' : err.message);
+      } finally { btn.disabled = false; }
     });
   })();
   </script>

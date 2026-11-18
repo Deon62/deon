@@ -72,6 +72,7 @@
         <a href="/about">About</a>
         <a href="/quote">Get a quote</a>
         <a href="/pay" class="active">Pay</a>
+        <a href="/track">Track</a>
       </div>
       <div class="nav-right">
         <a href="/quote" class="btn btn-sm">Start a project</a>
@@ -85,6 +86,7 @@
     <a href="/about">About</a>
     <a href="/quote">Get a quote</a>
     <a href="/pay" class="active">Pay</a>
+    <a href="/track">Track</a>
     <a href="/quote" class="btn">Start a project</a>
   </div>
 
@@ -107,10 +109,10 @@
             </div>
 
             <div class="invoice-box" id="invoiceBox" hidden>
-              <div class="rows"><div><span>Invoice</span><span id="invNo" class="mono"></span></div><div><span>Total</span><span id="invTotal"></span></div></div>
+              <div class="rows"><div><span>Invoice</span><span id="invNo" class="mono"></span></div><div><span>Total</span><span id="invTotal"></span></div><div><span>Balance due</span><strong id="invBalance"></strong></div></div>
               <div class="options">
-                <label class="option"><input type="radio" name="portion" value="full" checked /><span class="option-name">Pay in full</span></label>
-                <label class="option"><input type="radio" name="portion" value="deposit" /><span class="option-name">Pay 50% deposit</span></label>
+                <label class="option"><input type="radio" name="portion" value="full" checked /><span class="option-name">Pay the balance</span></label>
+                <label class="option" id="depositOpt"><input type="radio" name="portion" value="deposit" /><span class="option-name">Pay 50% deposit</span></label>
               </div>
             </div>
 
@@ -166,7 +168,7 @@
       <section class="state" id="stateOk" aria-live="polite">
         <div class="state-icon ok"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h3>Payment received</h3>
-        <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. A copy of your receipt is on its way to your email.</p>
+        <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. Save your receipt from the link below.</p>
         <div class="btn-stack">
           <a class="btn btn-ink" id="receiptLink" href="/receipt">View receipt</a>
           <a class="btn btn-outline" href="/">Done</a>
@@ -186,36 +188,21 @@
 
   <script src="/script.js"></script>
   <script>
-  /* ── PayHero integration point ─────────────────────────────────────
-     Replace the body of these two functions once the backend exists:
-       stkPush  → POST /api/payments  (server calls PayHero, returns a reference)
-       status   → GET  /api/payments/:reference  (server reads PayHero callback)
-     Never call PayHero from the browser: the API credentials stay on the server. */
-  const PayHero = {
-    async stkPush({ amount, phone, reference, name, email }) {
-      await new Promise((r) => setTimeout(r, 700));
-      return { reference: 'PH' + Date.now().toString(36).toUpperCase() };
-    },
-    async status(reference) {
-      await new Promise((r) => setTimeout(r, 3200));
-      const code = Array.from({ length: 10 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 34)]).join('');
-      return { status: 'SUCCESS', mpesaCode: code, paidAt: Date.now() };
-    },
-  };
-
   (() => {
+    wakeApi();
     const form = $('#payForm');
     const NAMES = ['Payment', 'Details', 'Confirm'];
-    let step = 1, invoice = null, cancelled = false;
+    let step = 1, invoice = null, run = 0;
 
     form.service.innerHTML = SERVICES.map((s) => `<option value="${s.id}">${s.name}</option>`).join('') + '<option value="other">Other</option>';
 
+    /* What the server will charge: invoices are priced by the server, never the browser. */
+    const deposit = () => invoice && form.portion.value === 'deposit' && invoice.paid === 0;
     const amountDue = () => invoice
-      ? Math.round(form.portion.value === 'deposit' ? invoice.total / 2 : invoice.total)
+      ? (deposit() ? Math.min(invoice.balance, Math.round(invoice.total / 2)) : invoice.balance)
       : Math.max(0, Math.round(Number(form.amount.value) || 0));
-
     const description = () => invoice
-      ? `Invoice ${invoice.number}${form.portion.value === 'deposit' ? ' (50% deposit)' : ''}`
+      ? `Invoice ${invoice.number}${deposit() ? ' (50% deposit)' : ''}`
       : form.service.selectedOptions[0].text;
 
     const renderConfirm = () => {
@@ -245,19 +232,28 @@
       $('.progress').style.visibility = id ? 'hidden' : '';
       ['stateWait', 'stateOk', 'stateFail'].forEach((s) => $('#' + s).classList.toggle('show', s === id));
     };
+    const fail = (msg) => { $('#failMsg').textContent = msg; show('stateFail'); };
 
     /* ── Invoice lookup: /pay?inv=INV-2026-0001 ── */
-    const loadInvoice = (id) => {
-      invoice = id ? store.find('invoices', id.trim().toUpperCase()) : null;
+    const refField = () => form.ref.closest('.field');
+    const loadInvoice = async (raw) => {
+      const id = (raw || '').trim().toUpperCase();
+      invoice = null;
+      refField().classList.remove('invalid');
+      if (id) {
+        try { invoice = await api('/api/invoices/' + encodeURIComponent(id)); }
+        catch (e) { refField().classList.add('invalid'); toast(e.message); }
+      }
       $('#invoiceBox').hidden = !invoice;
       $('#freeFields').hidden = !!invoice;
       if (invoice) {
         $('#invNo').textContent = invoice.number;
         $('#invTotal').textContent = kes(invoice.total);
-        form.name.value ||= invoice.client.name;
-        form.email.value ||= invoice.client.email;
-        form.phone.value ||= invoice.client.phone;
+        $('#invBalance').textContent = invoice.balance ? kes(invoice.balance) : 'Paid in full';
+        $('#depositOpt').hidden = invoice.paid > 0 || !invoice.balance;
+        if (invoice.paid > 0) form.portion.value = 'full';
       }
+      return invoice;
     };
 
     const p = params();
@@ -268,9 +264,11 @@
 
     /* ── Validation per step ── */
     const mark = (input, ok) => { input.closest('.field').classList.toggle('invalid', !ok); return ok; };
-    const valid = (n) => {
+    const valid = async (n) => {
       if (n === 1) {
-        if (form.ref.value.trim() && !invoice) loadInvoice(form.ref.value);
+        const ref = form.ref.value.trim().toUpperCase();
+        if (ref && invoice?.number !== ref && !(await loadInvoice(ref))) return false;
+        if (invoice && !invoice.balance) { toast('This invoice is already paid in full'); return false; }
         return invoice ? true : mark(form.amount, amountDue() >= 1);
       }
       if (n === 2) {
@@ -282,50 +280,60 @@
     };
 
     $('#backBtn').addEventListener('click', () => go(step - 1));
-    $('#cancelBtn').addEventListener('click', () => { cancelled = true; show('stateFail'); });
+    $('#cancelBtn').addEventListener('click', () => {
+      run++;
+      fail('Stopped waiting. If you already entered your PIN, the payment will still go through and you can find the receipt later.');
+    });
     $('#retryBtn').addEventListener('click', () => { show(null); go(3); });
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      if (!valid(step)) return $('.step.active .field.invalid input', form)?.focus();
+      const btn = $('#nextBtn');
+      btn.disabled = true;
+      const ok = await valid(step);
+      btn.disabled = false;
+      if (!ok) return $('.step.active .field.invalid input', form)?.focus();
       if (step < 3) return go(step + 1);
 
       const phone = normalisePhone(form.phone.value);
-      const amount = amountDue();
-      const payment = {
-        amount, phone,
-        name: form.name.value.trim(), email: form.email.value.trim(),
-        invoice: invoice?.number || form.ref.value.trim() || null,
-        description: description(),
+      const body = {
+        phone, name: form.name.value.trim(), email: form.email.value.trim(),
+        invoice: invoice?.number || null, portion: form.portion.value,
+        amount: invoice ? null : amountDue(), service: invoice ? '' : description(),
       };
-
-      cancelled = false;
-      $('#waitAmount').textContent = kes(amount);
+      const mine = ++run;
+      $('#waitAmount').textContent = kes(amountDue());
       $('#waitPhone').textContent = '0' + phone.slice(3).replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
       show('stateWait');
 
       try {
-        const { reference } = await PayHero.stkPush({ ...payment, reference: payment.invoice });
-        const res = await PayHero.status(reference);
-        if (cancelled) return;
-        if (res.status !== 'SUCCESS') throw new Error(res.message || 'Payment failed');
+        const started = await api('/api/payments', { method: 'POST', body });
+        $('#waitAmount').textContent = kes(started.amount);
+        // Poll until M-Pesa answers. The server gives up after 3 minutes.
+        let res;
+        for (let i = 0; i < 70; i++) {
+          await sleep(i < 5 ? 2500 : 3500);
+          if (mine !== run) return;
+          res = await api('/api/payments/' + encodeURIComponent(started.reference)).catch(() => null);
+          if (res && res.status !== 'pending') break;
+        }
+        if (mine !== run) return;
+        if (res?.status !== 'success') return fail(res?.message || 'No response from M-Pesa. No money was taken.');
 
-        const id = nextNumber('RCT', 'receipts');
-        store.put('receipts', id, { id, ...payment, reference, mpesaCode: res.mpesaCode, paidAt: res.paidAt });
         sendForm({
-          _subject: `Payment received: ${kes(amount)} from ${payment.name}`,
-          receipt: id, amount: kes(amount), for: payment.description,
-          invoice: payment.invoice || 'None', name: payment.name, email: payment.email,
-          phone: '0' + phone.slice(3), mpesa_code: res.mpesaCode,
+          _subject: `Payment received: ${kes(res.amount)} from ${body.name}`,
+          receipt: res.receipt_number, amount: kes(res.amount), for: invoice ? description() : body.service,
+          invoice: body.invoice || 'None', name: body.name, email: body.email,
+          phone: '0' + phone.slice(3), mpesa_code: res.mpesa_code,
         });
-        $('#okAmount').textContent = kes(amount);
-        $('#okCode').textContent = res.mpesaCode;
-        $('#receiptLink').href = '/receipt?id=' + encodeURIComponent(id);
+        $('#okAmount').textContent = kes(res.amount);
+        $('#okCode').textContent = res.mpesa_code;
+        $('#receiptLink').href = '/receipt?id=' + encodeURIComponent(res.receipt_token);
         show('stateOk');
       } catch (err) {
-        if (cancelled) return;
-        $('#failMsg').textContent = err.message || 'Something went wrong. No money was taken.';
-        show('stateFail');
+        if (mine === run) fail(err.message || 'Something went wrong. No money was taken.');
       }
     });
 

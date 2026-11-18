@@ -1,0 +1,137 @@
+from datetime import date, datetime, timezone
+
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .db import Base
+
+
+def now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# Project stages, in order. The tracker shows them as a timeline.
+STAGES: dict[str, str] = {
+    "discovery": "Discovery",
+    "design": "Design",
+    "build": "Build",
+    "testing": "Testing",
+    "launch": "Launch",
+    "done": "Complete",
+}
+
+
+class Quote(Base):
+    __tablename__ = "quotes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    company: Mapped[str] = mapped_column(String(120), default="")
+    email: Mapped[str] = mapped_column(String(200))
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    services: Mapped[list] = mapped_column(JSON, default=list)
+    extras: Mapped[list] = mapped_column(JSON, default=list)
+    timeline: Mapped[str] = mapped_column(String(20), default="standard")
+    brief: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="new")  # new, quoted, won, lost
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(160))
+    client_name: Mapped[str] = mapped_column(String(120))
+    client_email: Mapped[str] = mapped_column(String(200), index=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    stage: Mapped[str] = mapped_column(String(20), default="discovery")
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    quote_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+    updates: Mapped[list["ProjectUpdate"]] = relationship(
+        back_populates="project", order_by="ProjectUpdate.created_at.desc()", cascade="all, delete-orphan"
+    )
+    invoices: Mapped[list["Invoice"]] = relationship(back_populates="project", order_by="Invoice.created_at")
+
+
+class ProjectUpdate(Base):
+    __tablename__ = "project_updates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(160))
+    body: Mapped[str] = mapped_column(Text, default="")
+    stage: Mapped[str] = mapped_column(String(20))
+    progress: Mapped[int] = mapped_column(Integer)
+    link: Mapped[str] = mapped_column(String(300), default="")  # e.g. a staging URL to review
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+    project: Mapped[Project] = relationship(back_populates="updates")
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    client_name: Mapped[str] = mapped_column(String(120))
+    client_company: Mapped[str] = mapped_column(String(120), default="")
+    client_email: Mapped[str] = mapped_column(String(200), default="")
+    client_phone: Mapped[str] = mapped_column(String(40), default="")
+    items: Mapped[list] = mapped_column(JSON, default=list)  # [{desc, qty, rate}]
+    subtotal: Mapped[int] = mapped_column(Integer)
+    vat: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+    project: Mapped[Project | None] = relationship(back_populates="invoices")
+    payments: Mapped[list["Payment"]] = relationship(back_populates="invoice")
+
+    @property
+    def paid(self) -> int:
+        return sum(p.amount for p in self.payments if p.status == "success")
+
+    @property
+    def balance(self) -> int:
+        return max(0, self.total - self.paid)
+
+    @property
+    def status(self) -> str:
+        if self.balance == 0:
+            return "paid"
+        return "partly paid" if self.paid else "unpaid"
+
+
+class Payment(Base):
+    """One M-Pesa STK push. A successful payment is also the receipt."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reference: Mapped[str] = mapped_column(String(32), unique=True, index=True)  # ours, sent to PayHero
+    invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True, index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    phone: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(120))
+    email: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending, success, failed
+    message: Mapped[str] = mapped_column(String(300), default="")
+    payhero_reference: Mapped[str] = mapped_column(String(64), default="", index=True)
+    checkout_request_id: Mapped[str] = mapped_column(String(80), default="", index=True)
+    mpesa_code: Mapped[str] = mapped_column(String(32), default="")
+    receipt_number: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    receipt_token: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    invoice: Mapped[Invoice | None] = relationship(back_populates="payments")
