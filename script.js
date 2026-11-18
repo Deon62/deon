@@ -16,39 +16,16 @@ const BUSINESS = {
 
 /* ── Services: names used by the quote and pay pages.
       The home and services pages have this content written into the HTML for SEO. ── */
-const ICONS = {
-  globe:   '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
-  window:  '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M9 9v11"/>',
-  phone:   '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
-  card:    '<rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20M6 15h4"/>',
-  wrench:  '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
-  chat:    '<path d="M4 5h16v11H9l-5 4z"/>',
-};
 const SERVICES = [
-  { id: 'website', name: 'Websites', from: 35000, unit: '', icon: 'globe',
-    blurb: 'Fast, clean sites you can update yourself.',
-    lede: 'A site that loads fast, looks right on every phone and tells people exactly what you do. Built so you can change the content yourself, with the domain, hosting and search setup handled.',
-    included: ['Design that fits your brand', 'Pages you can edit yourself', 'Domain, hosting & email setup', 'Search and speed optimisation'] },
-  { id: 'webapp', name: 'Web applications', from: 120000, unit: '', icon: 'window',
-    blurb: 'Dashboards, portals and SaaS products.',
-    lede: 'Internal tools, customer portals and full SaaS products, from the database to the last screen. Built to grow, documented so your team can own it.',
-    included: ['Dashboards & admin panels', 'User accounts & roles', 'Database & API design', 'Reports & exports'] },
-  { id: 'mobile', name: 'Mobile apps', from: 180000, unit: '', icon: 'phone',
-    blurb: 'Android and iOS, released to both stores.',
-    lede: 'One codebase, two stores. Apps that feel native on Android and iOS, with push notifications, offline support and the release process taken care of.',
-    included: ['Android & iOS from one codebase', 'Push notifications', 'Offline-friendly', 'Play Store & App Store release'] },
-  { id: 'payments', name: 'Payments & APIs', from: 40000, unit: '', icon: 'card',
-    blurb: 'M-Pesa, cards and integrations.',
-    lede: 'Get paid inside your own product. M-Pesa STK push, paybill and till, card payments, and connections to the tools you already use, with reconciliation built in.',
-    included: ['M-Pesa STK push, paybill & till', 'Card payments', 'Payment reconciliation', 'Third-party API integrations'] },
-  { id: 'care', name: 'Maintenance', from: 15000, unit: '/mo', icon: 'wrench',
-    blurb: 'Hosting, updates and fixes, monthly.',
-    lede: 'Your site or app kept online, secure and up to date every month. Bug fixes, backups and small improvements, without hunting for a developer each time.',
-    included: ['Hosting & daily backups', 'Security updates', 'Bug fixes', 'Monthly hours for changes'] },
-  { id: 'consult', name: 'Consultation', from: 3000, unit: '/hr', icon: 'chat',
-    blurb: 'Scoping, reviews and technical advice.',
-    lede: 'Before you spend on a build, talk it through. Scoping, cost estimates, architecture and code reviews, and straight answers on what to build and what to skip.',
-    included: ['Project scoping & estimates', 'Architecture reviews', 'Code reviews', 'Build vs. buy advice'] },
+  { id: 'website', name: 'Websites' },
+  { id: 'webapp', name: 'Web applications' },
+  { id: 'mobile', name: 'Mobile apps' },
+  { id: 'payments', name: 'Payments & APIs' },
+  { id: 'ai', name: 'AI engineering' },
+  { id: 'contracts', name: 'Smart contracts' },
+  { id: 'data', name: 'Data science' },
+  { id: 'care', name: 'Maintenance' },
+  { id: 'consult', name: 'Consultation' },
 ];
 
 /* ── Helpers ── */
