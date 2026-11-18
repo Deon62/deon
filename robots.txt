@@ -1,0 +1,7 @@
+# Deon Orina, software developer
+User-agent: *
+Allow: /
+Disallow: /invoice
+Disallow: /receipt
+
+Sitemap: https://deon.ardena.co.ke/sitemap.xml

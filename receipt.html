@@ -3,39 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Receipt | Deon</title>
-  <meta name="robots" content="noindex" />
+  <title>Receipt | Deon Orina</title>
+  <meta name="description" content="View your payment receipt." />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="author" content="Deon Orina" />
   <meta name="theme-color" content="#0B6B53" />
+
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 
   <header class="nav-wrapper" id="nav">
     <nav class="nav" aria-label="Main">
-      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <a href="/" class="nav-logo" aria-label="Deon Orina, home">deon<span>.</span></a>
       <div class="nav-center">
-        <a href="index.html">Home</a>
-        <a href="services.html">Services</a>
-        <a href="index.html#process">How it works</a>
-        <a href="quote.html">Get a quote</a>
-        <a href="pay.html">Pay</a>
+        <a href="/">Home</a>
+        <a href="/services">Services</a>
+        <a href="/#process">How it works</a>
+        <a href="/quote">Get a quote</a>
+        <a href="/pay">Pay</a>
       </div>
       <div class="nav-right">
-        <a href="quote.html" class="btn btn-sm">Start a project</a>
+        <a href="/quote" class="btn btn-sm">Start a project</a>
       </div>
       <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
     </nav>
   </header>
   <div class="nav-drawer" id="navDrawer">
-    <a href="index.html">Home</a>
-    <a href="services.html">Services</a>
-    <a href="index.html#process">How it works</a>
-    <a href="quote.html">Get a quote</a>
-    <a href="pay.html">Pay</a>
-    <a href="quote.html" class="btn">Start a project</a>
+    <a href="/">Home</a>
+    <a href="/services">Services</a>
+    <a href="/#process">How it works</a>
+    <a href="/quote">Get a quote</a>
+    <a href="/pay">Pay</a>
+    <a href="/quote" class="btn">Start a project</a>
   </div>
 
   <main class="page">
@@ -59,14 +67,14 @@
         <article class="doc hero-anim" id="doc" aria-label="Receipt"></article>
         <div class="doc-actions no-print">
           <button class="btn btn-ink" type="button" onclick="print()">Download PDF</button>
-          <a class="btn btn-outline" href="index.html">Done</a>
+          <a class="btn btn-outline" href="/">Done</a>
         </div>
       </section>
 
     </div>
   </main>
 
-  <script src="script.js"></script>
+  <script src="/script.js"></script>
   <script>
   (() => {
     const show = (r) => {

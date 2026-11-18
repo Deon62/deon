@@ -3,38 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pay | Deon</title>
+  <title>Pay an Invoice with M-Pesa | Deon Orina</title>
+  <meta name="description" content="Pay for your project securely with M-Pesa in three quick steps and get your receipt instantly." />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <meta name="author" content="Deon Orina" />
   <meta name="theme-color" content="#0B6B53" />
+  <link rel="canonical" href="https://deon.ardena.co.ke/pay" />
+  <meta name="geo.region" content="KE" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Deon Orina" />
+  <meta property="og:title" content="Pay an Invoice with M-Pesa | Deon Orina" />
+  <meta property="og:description" content="Pay for your project securely with M-Pesa in three quick steps and get your receipt instantly." />
+  <meta property="og:url" content="https://deon.ardena.co.ke/pay" />
+  <meta property="og:image" content="https://deon.ardena.co.ke/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Deon Orina logo" />
+  <meta property="og:locale" content="en_KE" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Pay an Invoice with M-Pesa | Deon Orina" />
+  <meta name="twitter:description" content="Pay for your project securely with M-Pesa in three quick steps and get your receipt instantly." />
+  <meta name="twitter:image" content="https://deon.ardena.co.ke/assets/og-image.png" />
+
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://deon.ardena.co.ke/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Pay",
+          "item": "https://deon.ardena.co.ke/pay"
+        }
+      ]
+    }
+  ]
+}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 
   <header class="nav-wrapper" id="nav">
     <nav class="nav" aria-label="Main">
-      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <a href="/" class="nav-logo" aria-label="Deon Orina, home">deon<span>.</span></a>
       <div class="nav-center">
-        <a href="index.html">Home</a>
-        <a href="services.html">Services</a>
-        <a href="index.html#process">How it works</a>
-        <a href="quote.html">Get a quote</a>
-        <a href="pay.html" class="active">Pay</a>
+        <a href="/">Home</a>
+        <a href="/services">Services</a>
+        <a href="/#process">How it works</a>
+        <a href="/quote">Get a quote</a>
+        <a href="/pay" class="active">Pay</a>
       </div>
       <div class="nav-right">
-        <a href="quote.html" class="btn btn-sm">Start a project</a>
+        <a href="/quote" class="btn btn-sm">Start a project</a>
       </div>
       <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
     </nav>
   </header>
   <div class="nav-drawer" id="navDrawer">
-    <a href="index.html">Home</a>
-    <a href="services.html">Services</a>
-    <a href="index.html#process">How it works</a>
-    <a href="quote.html">Get a quote</a>
-    <a href="pay.html" class="active">Pay</a>
-    <a href="quote.html" class="btn">Start a project</a>
+    <a href="/">Home</a>
+    <a href="/services">Services</a>
+    <a href="/#process">How it works</a>
+    <a href="/quote">Get a quote</a>
+    <a href="/pay" class="active">Pay</a>
+    <a href="/quote" class="btn">Start a project</a>
   </div>
 
   <main class="flow">
@@ -117,8 +168,8 @@
         <h3>Payment received</h3>
         <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. A copy of your receipt is on its way to your email.</p>
         <div class="btn-stack">
-          <a class="btn btn-ink" id="receiptLink" href="receipt.html">View receipt</a>
-          <a class="btn btn-outline" href="index.html">Done</a>
+          <a class="btn btn-ink" id="receiptLink" href="/receipt">View receipt</a>
+          <a class="btn btn-outline" href="/">Done</a>
         </div>
       </section>
 
@@ -133,7 +184,7 @@
     </div>
   </main>
 
-  <script src="script.js"></script>
+  <script src="/script.js"></script>
   <script>
   /* ── PayHero integration point ─────────────────────────────────────
      Replace the body of these two functions once the backend exists:
@@ -195,7 +246,7 @@
       ['stateWait', 'stateOk', 'stateFail'].forEach((s) => $('#' + s).classList.toggle('show', s === id));
     };
 
-    /* ── Invoice lookup: pay.html?inv=INV-2026-0001 ── */
+    /* ── Invoice lookup: /pay?inv=INV-2026-0001 ── */
     const loadInvoice = (id) => {
       invoice = id ? store.find('invoices', id.trim().toUpperCase()) : null;
       $('#invoiceBox').hidden = !invoice;
@@ -269,7 +320,7 @@
         });
         $('#okAmount').textContent = kes(amount);
         $('#okCode').textContent = res.mpesaCode;
-        $('#receiptLink').href = 'receipt.html?id=' + encodeURIComponent(id);
+        $('#receiptLink').href = '/receipt?id=' + encodeURIComponent(id);
         show('stateOk');
       } catch (err) {
         if (cancelled) return;

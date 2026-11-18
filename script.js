@@ -6,7 +6,7 @@
 
 /* ── Business details: edit these ── */
 const BUSINESS = {
-  name: 'Deon',
+  name: 'Deon Orina',
   title: 'Software Developer',
   email: 'ceo@ardena.co.ke',
   phone: '0702 248 984',
@@ -14,7 +14,8 @@ const BUSINESS = {
   pin: '', // KRA PIN, shown on invoices and receipts when set
 };
 
-/* ── Services: used by the home page, quote estimator, pay and invoice pages ── */
+/* ── Services: names used by the quote and pay pages.
+      The home and services pages have this content written into the HTML for SEO. ── */
 const ICONS = {
   globe:   '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   window:  '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M9 9v11"/>',
@@ -121,61 +122,6 @@ const toast = (msg) => {
   toggle.addEventListener('click', () => set(!drawer.classList.contains('open')));
   $$('a', drawer).forEach((a) => a.addEventListener('click', () => set(false)));
   addEventListener('keydown', (e) => e.key === 'Escape' && set(false));
-})();
-
-/* ── Services: rendered before the reveal observer so they animate in ── */
-const ARROW = '<svg width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const svgIcon = (name, size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
-
-// Home: large index rows
-(() => {
-  const list = $('#serviceRows');
-  if (!list) return;
-  list.innerHTML = SERVICES.map((s, i) => `
-    <li data-anim style="--delay:${i * 60}ms">
-      <a href="services.html#${s.id}">
-        <span class="svc-row-icon">${svgIcon(s.icon)}</span>
-        <span class="svc-row-name">${s.name}</span>
-        <span class="svc-row-blurb">${s.blurb}</span>
-        <span class="svc-row-arrow">${ARROW}</span>
-      </a>
-    </li>`).join('');
-})();
-
-// Services page: index + one chapter per service (ardenap layout)
-(() => {
-  const index = $('#svcIndex');
-  const host = $('#svcChapters');
-  if (!index || !host) return;
-  const TONES = ['tone-white', 'tone-ink', 'tone-white', 'tone-green', 'tone-white', 'tone-ink'];
-  index.innerHTML = SERVICES.map((s, i) =>
-    `<li><a href="#${s.id}"><span class="muted">${String(i + 1).padStart(2, '0')}</span>${s.name}</a></li>`).join('');
-  host.innerHTML = SERVICES.map((s, i) => {
-    const dark = TONES[i] !== 'tone-white';
-    return `
-    <section class="chapter ${TONES[i]}" id="${s.id}" aria-labelledby="${s.id}-title">
-      <div class="wrap">
-        <div class="svc-top" data-anim>
-          <span class="svc-icon">${svgIcon(s.icon, 28)}</span>
-          <span class="svc-count muted">${String(i + 1).padStart(2, '0')} / ${String(SERVICES.length).padStart(2, '0')}</span>
-        </div>
-        <div class="grid12" style="margin-top:48px">
-          <h2 id="${s.id}-title" class="type-statement mw-14 c-7" data-anim>${s.name}</h2>
-          <p class="type-lede muted c-4 start-9 self-end" data-anim style="--delay:120ms">${s.lede}</p>
-        </div>
-        <div class="push" data-anim style="--delay:160ms">
-          <ul class="included">${s.included.map((x, j) => `<li><span class="muted">${String(j + 1).padStart(2, '0')}</span>${x}</li>`).join('')}</ul>
-          <div class="svc-foot">
-            <p class="muted">Every project is priced to its scope. Tell me what you need and get a fixed quote within 24 hours.</p>
-            <div class="svc-actions">
-              <a href="quote.html?service=${s.id}" class="btn ${dark ? 'btn-white' : 'btn-ink'}">Request a quote</a>
-              <a href="pay.html?service=${s.id}" class="text-link type-label">Pay for this</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>`;
-  }).join('');
 })();
 
 /* ── Reveal on scroll ── */
