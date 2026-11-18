@@ -8,8 +8,8 @@
 const BUSINESS = {
   name: 'Deon',
   title: 'Software Developer',
-  email: 'hello@deon.dev',
-  phone: '+254 700 000 000',
+  email: 'ceo@ardena.co.ke',
+  phone: '0702 248 984',
   location: 'Kenya',
   pin: '', // KRA PIN, shown on invoices and receipts when set
 };
@@ -77,6 +77,21 @@ const nextNumber = (prefix, key) => {
   return `${prefix}-${new Date().getFullYear()}-${String(n).padStart(4, '0')}`;
 };
 
+/* Form submissions go to Formspree. Returns true on success. */
+const FORMSPREE = 'https://formspree.io/f/xbgoyawp';
+const sendForm = async (data) => {
+  try {
+    const res = await fetch(FORMSPREE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 const toast = (msg) => {
   let t = $('.toast');
   if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.append(t); }
@@ -111,7 +126,6 @@ const toast = (msg) => {
 /* ── Services: rendered before the reveal observer so they animate in ── */
 const ARROW = '<svg width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const svgIcon = (name, size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
-const price = (s) => `${kes(s.from)}${s.unit}`;
 
 // Home: large index rows
 (() => {
@@ -123,7 +137,6 @@ const price = (s) => `${kes(s.from)}${s.unit}`;
         <span class="svc-row-icon">${svgIcon(s.icon)}</span>
         <span class="svc-row-name">${s.name}</span>
         <span class="svc-row-blurb">${s.blurb}</span>
-        <span class="svc-row-price"><small>From</small>${price(s)}</span>
         <span class="svc-row-arrow">${ARROW}</span>
       </a>
     </li>`).join('');
@@ -136,7 +149,7 @@ const price = (s) => `${kes(s.from)}${s.unit}`;
   if (!index || !host) return;
   const TONES = ['tone-white', 'tone-ink', 'tone-white', 'tone-green', 'tone-white', 'tone-ink'];
   index.innerHTML = SERVICES.map((s, i) =>
-    `<li><a href="#${s.id}"><span class="muted">${String(i + 1).padStart(2, '0')}</span>${s.name}<em>${price(s)}</em></a></li>`).join('');
+    `<li><a href="#${s.id}"><span class="muted">${String(i + 1).padStart(2, '0')}</span>${s.name}</a></li>`).join('');
   host.innerHTML = SERVICES.map((s, i) => {
     const dark = TONES[i] !== 'tone-white';
     return `
@@ -153,9 +166,9 @@ const price = (s) => `${kes(s.from)}${s.unit}`;
         <div class="push" data-anim style="--delay:160ms">
           <ul class="included">${s.included.map((x, j) => `<li><span class="muted">${String(j + 1).padStart(2, '0')}</span>${x}</li>`).join('')}</ul>
           <div class="svc-foot">
-            <p class="svc-price"><span class="muted">From</span> ${price(s)}</p>
+            <p class="muted">Every project is priced to its scope. Tell me what you need and get a fixed quote within 24 hours.</p>
             <div class="svc-actions">
-              <a href="quote.html?service=${s.id}" class="btn ${dark ? 'btn-white' : 'btn-ink'}">Get a quote ${ARROW.replace('20', '16').replace('20', '16')}</a>
+              <a href="quote.html?service=${s.id}" class="btn ${dark ? 'btn-white' : 'btn-ink'}">Request a quote</a>
               <a href="pay.html?service=${s.id}" class="text-link type-label">Pay for this</a>
             </div>
           </div>

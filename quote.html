@@ -41,7 +41,7 @@
     <div class="wrap">
       <div class="page-head">
         <h1 class="type-statement hero-anim" style="animation-delay:.08s">Tell me what you're building.</h1>
-        <p class="type-lede muted hero-anim" style="animation-delay:.16s">Pick what fits and see an estimate right away. I'll confirm a fixed quote within 24 hours.</p>
+        <p class="type-lede muted hero-anim" style="animation-delay:.16s">Pick what fits and add a short brief. You'll get a fixed quote by email within 24 hours.</p>
       </div>
 
       <div class="split">
@@ -59,9 +59,9 @@
           <fieldset class="field">
             <legend class="legend">Timeline</legend>
             <div class="options">
-              <label class="option"><input type="radio" name="timeline" value="flexible" /><span class="option-name">Flexible</span><span class="option-meta">−10%</span></label>
-              <label class="option"><input type="radio" name="timeline" value="standard" checked /><span class="option-name">Standard</span><span class="option-meta">No change</span></label>
-              <label class="option"><input type="radio" name="timeline" value="rush" /><span class="option-name">Rush</span><span class="option-meta">+25%</span></label>
+              <label class="option"><input type="radio" name="timeline" value="flexible" /><span class="option-name">Flexible</span><span class="option-meta">No fixed deadline</span></label>
+              <label class="option"><input type="radio" name="timeline" value="standard" checked /><span class="option-name">Standard</span><span class="option-meta">A few weeks</span></label>
+              <label class="option"><input type="radio" name="timeline" value="rush" /><span class="option-name">Urgent</span><span class="option-meta">As soon as possible</span></label>
             </div>
           </fieldset>
 
@@ -79,15 +79,18 @@
             <div class="field"><label for="q-phone">Phone</label><input id="q-phone" name="phone" type="tel" autocomplete="tel" placeholder="0712 345 678" /></div>
           </div>
 
-          <button type="submit" class="btn btn-ink btn-full">Send request <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="submit" class="btn btn-ink btn-full">Send request</button>
         </form>
 
         <aside class="sticky hero-anim" style="animation-delay:.32s">
           <div class="panel" id="estimatePanel">
-            <div class="panel-title"><h2>Estimate</h2><span class="type-label muted" id="estRef"></span></div>
+            <div class="panel-title"><h2>Your request</h2><span class="muted mono" id="estRef"></span></div>
             <div class="rows" id="estRows"></div>
-            <div class="total"><span class="muted">Estimated range</span><strong id="estTotal">—</strong></div>
-            <p class="field-hint" style="margin-top:16px">An estimate, not a final price. 50% deposit to start, balance on delivery.</p>
+            <ol class="next-steps">
+              <li>I review your request and reply with any questions.</li>
+              <li>You get a fixed quote and an invoice by email within 24 hours.</li>
+              <li>Pay the deposit with M-Pesa and work begins.</li>
+            </ol>
           </div>
 
           <div class="panel state" id="quoteDone" aria-live="polite">
@@ -105,7 +108,7 @@
     <div class="wrap">
       <div class="footer-bottom">
         <span>&copy; <span data-year></span> Deon. All rights reserved.</span>
-        <span><a href="mailto:hello@deon.dev">hello@deon.dev</a></span>
+        <span><a href="mailto:ceo@ardena.co.ke">ceo@ardena.co.ke</a></span>
       </div>
     </div>
   </footer>
@@ -114,20 +117,19 @@
   <script>
   (() => {
     const EXTRAS = [
-      { id: 'mpesa',  name: 'M-Pesa payments', cost: 25000 },
-      { id: 'auth',   name: 'User accounts',   cost: 20000 },
-      { id: 'admin',  name: 'Admin dashboard', cost: 35000 },
-      { id: 'cms',    name: 'Editable content', cost: 15000 },
-      { id: 'design', name: 'Custom design',   cost: 30000 },
-      { id: 'seo',    name: 'SEO setup',       cost: 10000 },
+      { id: 'mpesa',  name: 'M-Pesa payments' },
+      { id: 'auth',   name: 'User accounts' },
+      { id: 'admin',  name: 'Admin dashboard' },
+      { id: 'cms',    name: 'Editable content' },
+      { id: 'design', name: 'Custom design' },
+      { id: 'seo',    name: 'SEO setup' },
     ];
-    const RATE = { flexible: 0.9, standard: 1, rush: 1.25 };
-    const quotable = SERVICES.filter((s) => !s.unit); // fixed-price project types
+    const TIMELINE = { flexible: 'Flexible', standard: 'Standard', rush: 'Urgent' };
 
-    $('#typeOptions').innerHTML = quotable.map((s) =>
-      `<label class="option"><input type="checkbox" name="type" value="${s.id}" /><span class="option-name">${s.name}</span><span class="option-meta">from ${kes(s.from)}</span></label>`).join('');
+    $('#typeOptions').innerHTML = SERVICES.map((s) =>
+      `<label class="option"><input type="checkbox" name="type" value="${s.id}" /><span class="option-name">${s.name}</span></label>`).join('');
     $('#extraOptions').innerHTML = EXTRAS.map((e) =>
-      `<label class="option"><input type="checkbox" name="extras" value="${e.id}" /><span class="option-name">${e.name}</span><span class="option-meta">+ ${kes(e.cost)}</span></label>`).join('');
+      `<label class="option"><input type="checkbox" name="extras" value="${e.id}" /><span class="option-name">${e.name}</span></label>`).join('');
 
     const pre = params().service;
     const first = $(`input[name=type][value="${pre}"]`) || $('input[name=type]');
@@ -137,35 +139,24 @@
     const ref = nextNumber('QT', 'quotes');
     $('#estRef').textContent = ref;
 
-    const estimate = () => {
-      const types = $$('input[name=type]:checked').map((i) => SERVICES.find((s) => s.id === i.value));
-      const extras = $$('input[name=extras]:checked').map((i) => EXTRAS.find((e) => e.id === i.value));
-      const tl = form.timeline.value;
-      const base = [...types.map((t) => t.from), ...extras.map((e) => e.cost)].reduce((a, n) => a + n, 0);
-      const low = base * RATE[tl];
-      const high = low * 1.4;
-      return { types, extras, tl, low, high };
-    };
+    const selection = () => ({
+      types: $$('input[name=type]:checked').map((i) => SERVICES.find((s) => s.id === i.value)),
+      extras: $$('input[name=extras]:checked').map((i) => EXTRAS.find((e) => e.id === i.value)),
+      tl: form.timeline.value,
+    });
 
     const render = () => {
-      const e = estimate();
+      const e = selection();
       $('#typeField').classList.remove('invalid');
-      if (!e.types.length) {
-        $('#estRows').innerHTML = '<div><span>Choose at least one project type</span><span></span></div>';
-        $('#estTotal').textContent = '—';
-        return;
-      }
       $('#estRows').innerHTML =
-        e.types.map((t) => `<div><span>${esc(t.name)}</span><span>from ${kes(t.from)}</span></div>`).join('') +
-        e.extras.map((x) => `<div><span>${esc(x.name)}</span><span>+ ${kes(x.cost)}</span></div>`).join('') +
-        `<div><span>Timeline</span><span style="text-transform:capitalize">${e.tl}</span></div>`;
-      const k = (n) => Math.round(n / 1000).toLocaleString('en-KE') + 'k';
-      $('#estTotal').textContent = `KES ${k(e.low)}–${k(e.high)}`;
+        `<div><span>Services</span><span>${e.types.length ? esc(e.types.map((t) => t.name).join(', ')) : 'None yet'}</span></div>` +
+        (e.extras.length ? `<div><span>Extras</span><span>${esc(e.extras.map((x) => x.name).join(', '))}</span></div>` : '') +
+        `<div><span>Timeline</span><span>${TIMELINE[e.tl]}</span></div>`;
     };
     form.addEventListener('change', render);
     render();
 
-    form.addEventListener('submit', (ev) => {
+    form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       let ok = true;
       if (!$$('input[name=type]:checked').length) {
@@ -182,19 +173,38 @@
       });
       if (!ok) return;
 
-      const e = estimate();
-      // TODO(backend): POST /api/quotes, then email the client and notify me.
-      store.put('quotes', ref, {
+      const e = selection();
+      const btn = form.querySelector('button[type=submit]');
+      const quote = {
         ref, created: Date.now(),
         types: e.types.map((t) => t.id), extras: e.extras.map((x) => x.id), timeline: e.tl,
-        low: e.low, high: e.high,
         brief: form.brief.value.trim(), name: form.name.value.trim(), company: form.company.value.trim(),
         email: form.email.value.trim(), phone: form.phone.value.trim(),
+      };
+
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      const sent = await sendForm({
+        _subject: `Quote request ${ref} from ${quote.name}`,
+        reference: ref,
+        name: quote.name,
+        company: quote.company,
+        email: quote.email,
+        phone: quote.phone,
+        services: e.types.map((t) => t.name).join(', '),
+        extras: e.extras.map((x) => x.name).join(', ') || 'None',
+        timeline: e.tl,
+        brief: quote.brief,
       });
+      if (!sent) {
+        btn.disabled = false;
+        btn.textContent = 'Send request';
+        return toast('Could not send. Check your connection and try again');
+      }
+      store.put('quotes', ref, quote);
 
       $('#doneName').textContent = form.name.value.trim().split(' ')[0];
       $('#doneRef').textContent = ref;
-      form.querySelector('button[type=submit]').disabled = true;
       $('#estimatePanel').style.display = 'none';
       $('#quoteDone').classList.add('show');
       $('#quoteDone').scrollIntoView({ behavior: 'smooth', block: 'center' });
