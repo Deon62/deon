@@ -11,8 +11,10 @@ from .. import emails
 from ..config import get_settings
 from ..db import get_db
 from ..models import Invoice, Payment, Project, ProjectUpdate, Quote
+from .public import mark_success
 from ..schemas import (
     InvoiceIn,
+    ManualPaymentIn,
     InvoiceOut,
     PaymentOut,
     ProjectIn,
@@ -70,6 +72,33 @@ async def email_test() -> dict:
     if not sent:
         raise HTTPException(502, "Resend rejected the emails. Check the server logs and that your domain is verified.")
     return {"sent": sent, "to": s.notify_email}
+
+
+# ── Overview ────────────────────────────────────────────────────────
+@router.get("/overview")
+def overview(db: Session = Depends(get_db)) -> dict:
+    invoices = db.scalars(select(Invoice).options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
+    outstanding = sorted((i for i in invoices if i.balance > 0), key=lambda i: (i.due_date or date.max, i.created_at))
+    paid = db.scalars(select(Payment).where(Payment.status == "success").order_by(Payment.paid_at.desc())).all()
+    month = date.today().replace(day=1)
+    projects = db.scalars(select(Project).options(selectinload(Project.updates)).order_by(Project.updated_at.desc())).all()
+    counts = {s: sum(1 for p in projects if p.status == s) for s in ("active", "paused", "completed")}
+    return {
+        "outstanding_total": sum(i.balance for i in outstanding),
+        "outstanding_count": len(outstanding),
+        "overdue_count": sum(1 for i in outstanding if i.due_date and i.due_date < date.today()),
+        "collected_month": sum(p.amount for p in paid if p.paid_at and p.paid_at.date() >= month),
+        "collected_total": sum(p.amount for p in paid),
+        "projects": counts,
+        "quotes_new": len(db.scalars(select(Quote.id).where(Quote.status == "new")).all()),
+        "outstanding": [_invoice_out(i).model_dump(mode="json") for i in outstanding[:8]],
+        "recent_payments": [PaymentOut.model_validate(p).model_dump(mode="json") for p in paid[:6]],
+        "projects_recent": [
+            {"code": p.code, "title": p.title, "client_name": p.client_name, "status": p.status,
+             "stage": p.stage, "progress": p.progress, "updated_at": p.updated_at.isoformat()}
+            for p in projects if p.status != "completed"
+        ][:6],
+    }
 
 
 # ── Quotes ──────────────────────────────────────────────────────────────
@@ -137,6 +166,40 @@ def create_invoice(body: InvoiceIn, bg: BackgroundTasks, db: Session = Depends(g
                 "project_code": project.code if project else None}
         bg.add_task(emails.send, inv.client_email, *emails.invoice_issued(data))
     return _invoice_out(inv)
+
+
+@router.post("/invoices/{number}/payments", response_model=InvoiceOut, status_code=201)
+def record_payment(number: str, body: ManualPaymentIn, bg: BackgroundTasks, db: Session = Depends(get_db)):
+    """Record money received outside the site, so the pending amount and receipts stay right."""
+    inv = db.scalar(select(Invoice).where(Invoice.number == number.upper()).options(selectinload(Invoice.payments)))
+    if not inv:
+        raise HTTPException(404, "Invoice not found.")
+    if body.amount > inv.balance:
+        raise HTTPException(422, f"That's more than the pending amount ({inv.balance:,}).")
+    part = body.amount < inv.balance
+    p = Payment(
+        reference="PAY-" + random_code(10), invoice=inv, amount=body.amount, phone="", method=body.method,
+        name=inv.client_name, email=inv.client_email or "", status="pending",
+        description=f"Invoice {inv.number}" + (" (part payment)" if part else ""),
+    )
+    db.add(p)
+    db.commit()
+    mark_success(db, p, body.reference or body.method.upper().replace(" ", "-"), bg, email_client=body.send_receipt)
+    db.refresh(inv)
+    return _invoice_out(inv)
+
+
+@router.delete("/invoices/{number}", status_code=204)
+def delete_invoice(number: str, db: Session = Depends(get_db)) -> None:
+    inv = db.scalar(select(Invoice).where(Invoice.number == number.upper()).options(selectinload(Invoice.payments)))
+    if not inv:
+        raise HTTPException(404, "Invoice not found.")
+    if inv.paid:
+        raise HTTPException(409, "This invoice has payments against it, so it can't be deleted.")
+    for p in inv.payments:
+        p.invoice_id = None
+    db.delete(inv)
+    db.commit()
 
 
 # ── Payments ────────────────────────────────────────────────────────────

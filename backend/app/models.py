@@ -101,6 +101,10 @@ class Invoice(Base):
     payments: Mapped[list["Payment"]] = relationship(back_populates="invoice")
 
     @property
+    def lines(self) -> list[dict]:
+        return [{"desc": i.get("desc", ""), "amount": round(float(i.get("qty", 1)) * int(i.get("rate", 0)))} for i in self.items or []]
+
+    @property
     def paid(self) -> int:
         return sum(p.amount for p in self.payments if p.status == "success")
 
@@ -129,6 +133,7 @@ class Payment(Base):
     email: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(12), default="pending")  # pending, success, failed
+    method: Mapped[str] = mapped_column(String(40), default="M-Pesa", server_default="M-Pesa")  # or Cash, Bank transfer
     message: Mapped[str] = mapped_column(String(300), default="")
     payhero_reference: Mapped[str] = mapped_column(String(64), default="", index=True)
     checkout_request_id: Mapped[str] = mapped_column(String(80), default="", index=True)

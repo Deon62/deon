@@ -109,7 +109,8 @@
             </div>
 
             <div class="invoice-box" id="invoiceBox" hidden>
-              <div class="rows"><div><span>Invoice</span><span id="invNo" class="mono"></span></div><div><span>Total</span><span id="invTotal"></span></div><div><span>Balance due</span><strong id="invBalance"></strong></div></div>
+              <div class="rows" id="invLines"></div>
+              <div class="pending-amount"><span>Pending amount</span><strong id="invBalance"></strong><em id="invDue"></em></div>
               <div class="options">
                 <label class="option"><input type="radio" name="portion" value="full" checked /><span class="option-name">Pay the balance</span></label>
                 <label class="option" id="depositOpt"><input type="radio" name="portion" value="deposit" /><span class="option-name">Pay 50% deposit</span></label>
@@ -247,9 +248,13 @@
       $('#invoiceBox').hidden = !invoice;
       $('#freeFields').hidden = !!invoice;
       if (invoice) {
-        $('#invNo').textContent = invoice.number;
-        $('#invTotal').textContent = kes(invoice.total);
+        $('#invLines').innerHTML =
+          `<div><span>Invoice</span><span class="mono">${esc(invoice.number)}</span></div>` +
+          invoice.lines.map((l) => `<div><span>${esc(l.desc)}</span><span>${kes(l.amount)}</span></div>`).join('') +
+          (invoice.paid ? `<div><span>Paid so far</span><span>${kes(invoice.paid)} of ${kes(invoice.total)}</span></div>` : '');
         $('#invBalance').textContent = invoice.balance ? kes(invoice.balance) : 'Paid in full';
+        const late = invoice.balance && invoice.due_date && new Date(invoice.due_date) < new Date(new Date().toDateString());
+        $('#invDue').textContent = !invoice.balance ? '' : invoice.due_date ? (late ? `Was due ${fmtDate(invoice.due_date)}` : `Due ${fmtDate(invoice.due_date)}`) : 'Due on receipt';
         $('#depositOpt').hidden = invoice.paid > 0 || !invoice.balance;
         if (invoice.paid > 0) form.portion.value = 'full';
       }

@@ -252,7 +252,7 @@ def payment_receipt(pay: dict) -> tuple[str, str, str]:
     rows = [
         ("Amount", f"<strong style='font-weight:600'>{kes(pay['amount'])}</strong>"),
         ("For", e(pay["description"])),
-        ("M-Pesa code", f'<span style="font-family:{MONO}">{e(pay["mpesa_code"])}</span>'),
+        ("M-Pesa code" if pay.get("method", "M-Pesa") == "M-Pesa" else pay["method"] + " ref", f'<span style="font-family:{MONO}">{e(pay["mpesa_code"])}</span>'),
         ("Receipt", f'<span style="font-family:{MONO}">{e(pay["receipt_number"])}</span>'),
         ("Date", e(fmt_date(pay["paid_at"]))),
     ]
@@ -280,8 +280,9 @@ def payment_notify(pay: dict) -> tuple[str, str, str]:
     subject = f"Paid: {kes(pay['amount'])} from {pay['name']}"
     body = details([
         ("Amount", f"<strong style='font-weight:600'>{kes(pay['amount'])}</strong>"), ("For", e(pay["description"])),
-        ("From", e(pay["name"])), ("Email", e(pay["email"])), ("Phone", e("0" + pay["phone"][3:])),
-        ("M-Pesa code", f'<span style="font-family:{MONO}">{e(pay["mpesa_code"])}</span>'),
+        ("From", e(pay["name"])), ("Email", e(pay["email"])), ("Phone", e("0" + pay["phone"][3:]) if pay["phone"] else ""),
+        ("Method", e(pay.get("method", "M-Pesa"))),
+        ("Code / ref", f'<span style="font-family:{MONO}">{e(pay["mpesa_code"])}</span>'),
         ("Receipt", e(pay["receipt_number"])),
     ]) + buttons(button("Open admin", url("/admin")))
     html = layout(preheader=pay["description"], heading="Payment received", body=body, signoff=False)

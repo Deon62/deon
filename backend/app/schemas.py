@@ -68,11 +68,21 @@ class InvoicePublic(Out):
     """What anyone with the invoice number may see: enough to pay it, no contact details."""
 
     number: str
+    lines: list[dict]
     total: int
     paid: int
     balance: int
     status: str
     due_date: date | None
+
+
+class ManualPaymentIn(BaseModel):
+    """A payment made outside the site (cash, bank transfer, M-Pesa sent directly)."""
+
+    amount: int = Field(ge=1, le=100_000_000)
+    method: Literal["Cash", "Bank transfer", "M-Pesa", "Other"] = "Bank transfer"
+    reference: str = Field("", max_length=32)
+    send_receipt: bool = True
 
 
 class InvoiceOut(InvoicePublic):
@@ -122,6 +132,7 @@ class PaymentOut(Out):
     email: str
     description: str
     status: str
+    method: str
     message: str
     mpesa_code: str
     receipt_number: str | None
@@ -137,6 +148,7 @@ class Receipt(BaseModel):
     amount: int
     description: str
     invoice: str | None
+    method: str
     mpesa_code: str
     paid_at: datetime
 

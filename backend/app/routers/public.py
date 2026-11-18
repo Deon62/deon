@@ -120,7 +120,7 @@ async def start_payment(body: PaymentIn, db: Session = Depends(get_db)):
     return PaymentStarted(reference=payment.reference, amount=amount)
 
 
-def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks) -> None:
+def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks, email_client: bool = True) -> None:
     if p.status == "success":
         return
     p.status = "success"
@@ -135,10 +135,11 @@ def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks) 
     data = {
         "name": p.name, "email": p.email, "phone": p.phone, "amount": p.amount, "description": p.description,
         "mpesa_code": p.mpesa_code, "receipt_number": p.receipt_number, "receipt_token": p.receipt_token,
-        "paid_at": p.paid_at, "invoice": inv.number if inv else None, "balance": inv.balance if inv else 0,
+        "paid_at": p.paid_at, "method": p.method, "invoice": inv.number if inv else None, "balance": inv.balance if inv else 0,
         "project_code": inv.project.code if inv and inv.project else None,
     }
-    bg.add_task(emails.send, p.email, *emails.payment_receipt(data))
+    if email_client and "@" in p.email:
+        bg.add_task(emails.send, p.email, *emails.payment_receipt(data))
     bg.add_task(emails.send, get_settings().notify_email, *emails.payment_notify(data), reply_to=p.email)
 
 
@@ -218,7 +219,7 @@ async def payhero_callback(secret: str, request: Request, bg: BackgroundTasks, d
 def _receipt(p: Payment) -> Receipt:
     return Receipt(
         number=p.receipt_number or "", name=p.name, email=p.email, phone=p.phone, amount=p.amount,
-        description=p.description, invoice=p.invoice.number if p.invoice else None,
+        description=p.description, invoice=p.invoice.number if p.invoice else None, method=p.method,
         mpesa_code=p.mpesa_code, paid_at=p.paid_at or p.created_at,
     )
 
