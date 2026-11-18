@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Receipt | Deon</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0B6B53" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav-wrapper" id="nav">
+    <nav class="nav" aria-label="Main">
+      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <div class="nav-center">
+        <a href="index.html">Home</a>
+        <a href="services.html">Services</a>
+        <a href="index.html#process">How it works</a>
+        <a href="quote.html">Get a quote</a>
+        <a href="pay.html">Pay</a>
+      </div>
+      <div class="nav-right">
+        <a href="quote.html" class="btn btn-sm">Start a project</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+  <div class="nav-drawer" id="navDrawer">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="index.html#process">How it works</a>
+    <a href="quote.html">Get a quote</a>
+    <a href="pay.html">Pay</a>
+    <a href="quote.html" class="btn">Start a project</a>
+  </div>
+
+  <main class="page">
+    <div class="wrap receipt-wrap">
+
+      <!-- Lookup, shown when no receipt is given -->
+      <section id="lookup" hidden>
+        <div class="page-head">
+          <h1 class="type-statement hero-anim" style="animation-delay:.08s">Find a receipt.</h1>
+          <p class="type-lede muted hero-anim" style="animation-delay:.16s">Enter the receipt number from your confirmation email.</p>
+        </div>
+        <form class="panel form hero-anim" id="lookupForm" style="animation-delay:.24s" novalidate>
+          <div class="field"><label for="r-id">Receipt number</label><input id="r-id" name="id" class="mono" placeholder="RCT-2026-0001" required /></div>
+          <p class="field-hint" id="lookupMsg" hidden style="color:var(--red)">No receipt found with that number.</p>
+          <button class="btn btn-ink btn-full" type="submit">Show receipt</button>
+        </form>
+      </section>
+
+      <!-- Receipt -->
+      <section id="receiptView" hidden>
+        <article class="doc hero-anim" id="doc" aria-label="Receipt"></article>
+        <div class="doc-actions no-print">
+          <button class="btn btn-ink" type="button" onclick="print()">Download PDF</button>
+          <a class="btn btn-outline" href="index.html">Done</a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+  (() => {
+    const show = (r) => {
+      $('#lookup').hidden = true;
+      $('#receiptView').hidden = false;
+      document.title = `Receipt ${r.id} | Deon`;
+      $('#doc').innerHTML = `
+        <header class="doc-head">
+          <div class="doc-brand">
+            <span class="nav-logo">deon<span>.</span></span>
+            <p>${BUSINESS.title}<br>${BUSINESS.email} · ${BUSINESS.phone}<br>${BUSINESS.location}${BUSINESS.pin ? ' · PIN ' + BUSINESS.pin : ''}</p>
+          </div>
+          <div class="doc-kind"><h2>Receipt</h2><p class="mono">${esc(r.id)}</p></div>
+        </header>
+        <div class="doc-meta">
+          <div><span class="type-label">Received from</span><p>${esc(r.name)}<br>${esc(r.email)}<br>+${esc(r.phone)}</p></div>
+          <div><span class="type-label">Paid on</span><p>${fmtDateTime(r.paidAt)}</p></div>
+          <div><span class="type-label">Method</span><p>M-Pesa<br><span class="mono">${esc(r.mpesaCode)}</span></p></div>
+        </div>
+        <table class="doc-table">
+          <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+          <tbody><tr><td>${esc(r.description)}${r.invoice ? `<br><span class="muted">Against invoice <span class="mono">${esc(r.invoice)}</span></span>` : ''}</td><td>${kes(r.amount)}</td></tr></tbody>
+        </table>
+        <div class="doc-totals">
+          <div class="grand"><span>Amount paid</span><span>${kes(r.amount)}</span></div>
+        </div>
+        <footer class="doc-foot">
+          <p>Thank you for your payment.<br>Keep this receipt for your records.</p>
+          <span class="doc-stamp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Paid</span>
+        </footer>`;
+    };
+
+    const DEMO = {
+      id: 'RCT-2026-0000', name: 'Jane Wanjiku', email: 'jane@acme.co.ke', phone: '254712345678',
+      amount: 60000, description: 'Invoice INV-2026-0001 (50% deposit)', invoice: 'INV-2026-0001',
+      mpesaCode: 'SKL4Q8XZ2P', paidAt: Date.now(),
+    };
+
+    const { id, demo } = params();
+    // TODO(backend): GET /api/receipts/:id instead of the local store.
+    const r = demo ? DEMO : id ? store.find('receipts', id.toUpperCase()) : null;
+    if (r) return show(r);
+
+    $('#lookup').hidden = false;
+    if (id) { $('#r-id').value = id; $('#lookupMsg').hidden = false; }
+    $('#lookupForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const found = store.find('receipts', $('#r-id').value.trim().toUpperCase());
+      if (!found) { $('#lookupMsg').hidden = false; return; }
+      history.replaceState(null, '', '?id=' + encodeURIComponent(found.id));
+      show(found);
+    });
+  })();
+  </script>
+</body>
+</html>

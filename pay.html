@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pay | Deon</title>
+  <meta name="theme-color" content="#0B6B53" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav-wrapper" id="nav">
+    <nav class="nav" aria-label="Main">
+      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <div class="nav-center">
+        <a href="index.html">Home</a>
+        <a href="services.html">Services</a>
+        <a href="index.html#process">How it works</a>
+        <a href="quote.html">Get a quote</a>
+        <a href="pay.html" class="active">Pay</a>
+      </div>
+      <div class="nav-right">
+        <a href="quote.html" class="btn btn-sm">Start a project</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+  <div class="nav-drawer" id="navDrawer">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="index.html#process">How it works</a>
+    <a href="quote.html">Get a quote</a>
+    <a href="pay.html" class="active">Pay</a>
+    <a href="quote.html" class="btn">Start a project</a>
+  </div>
+
+  <main class="page">
+    <div class="wrap">
+      <div class="page-head">
+        <h1 class="type-statement hero-anim" style="animation-delay:.08s" id="payTitle">Pay securely with M-Pesa.</h1>
+        <p class="type-lede muted hero-anim" style="animation-delay:.16s">You'll get a prompt on your phone. Enter your M-Pesa PIN to approve, and your receipt is ready straight away.</p>
+      </div>
+
+      <div class="split">
+        <div class="hero-anim" style="animation-delay:.24s">
+          <form class="panel form" id="payForm" novalidate>
+            <div class="field" id="invoiceField">
+              <label for="p-ref">Invoice number <span style="letter-spacing:0;text-transform:none">(optional)</span></label>
+              <input id="p-ref" name="ref" placeholder="INV-2026-0001" autocomplete="off" />
+            </div>
+
+            <fieldset class="field" id="splitField" hidden>
+              <legend class="legend">Amount to pay</legend>
+              <div class="options">
+                <label class="option"><input type="radio" name="portion" value="full" checked /><span class="option-name">Full balance</span></label>
+                <label class="option"><input type="radio" name="portion" value="deposit" /><span class="option-name">50% deposit</span></label>
+              </div>
+            </fieldset>
+
+            <div class="form-row">
+              <div class="field" id="serviceField">
+                <label for="p-service">Paying for</label>
+                <select id="p-service" name="service"></select>
+              </div>
+              <div class="field">
+                <label for="p-amount">Amount</label>
+                <div class="prefix-input"><span>KES</span><input id="p-amount" name="amount" type="number" inputmode="numeric" min="1" step="1" placeholder="0" required /></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="field"><label for="p-name">Full name</label><input id="p-name" name="name" autocomplete="name" required placeholder="Jane Wanjiku" /></div>
+              <div class="field"><label for="p-email">Email for receipt</label><input id="p-email" name="email" type="email" autocomplete="email" required placeholder="jane@acme.co.ke" /></div>
+            </div>
+
+            <div class="field">
+              <label for="p-phone">M-Pesa number</label>
+              <input id="p-phone" name="phone" type="tel" autocomplete="tel" required placeholder="0712 345 678" />
+              <span class="field-hint">The prompt is sent to this number.</span>
+            </div>
+
+            <button type="submit" class="btn btn-green btn-full" id="payBtn">Pay</button>
+
+            <p class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              Payments are processed by PayHero over M-Pesa. Your PIN is entered on your phone and never on this site.</p>
+          </form>
+
+          <!-- States -->
+          <div class="panel state" id="stateWait" aria-live="polite">
+            <div class="state-icon wait"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+            <h3>Check your phone</h3>
+            <p>An M-Pesa prompt for <strong id="waitAmount"></strong> was sent to <strong id="waitPhone"></strong>. Enter your PIN to approve.</p>
+            <div class="btn-stack"><button class="btn btn-outline" id="cancelBtn" type="button">Cancel</button></div>
+          </div>
+
+          <div class="panel state" id="stateOk" aria-live="polite">
+            <div class="state-icon ok"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Payment received</h3>
+            <p><strong id="okAmount"></strong> paid. M-Pesa code <strong class="mono" id="okCode"></strong>. A copy of the receipt is on its way to your email.</p>
+            <div class="btn-stack">
+              <a class="btn btn-ink" id="receiptLink" href="receipt.html">View receipt</a>
+              <a class="btn btn-outline" href="index.html">Done</a>
+            </div>
+          </div>
+
+          <div class="panel state" id="stateFail" aria-live="polite">
+            <div class="state-icon fail"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></div>
+            <h3>Payment not completed</h3>
+            <p id="failMsg">The request was cancelled or timed out. No money was taken.</p>
+            <div class="btn-stack"><button class="btn btn-ink" id="retryBtn" type="button">Try again</button></div>
+          </div>
+        </div>
+
+        <aside class="sticky hero-anim" style="animation-delay:.32s">
+          <div class="panel">
+            <div class="panel-title"><h2>Summary</h2><span id="invBadge"></span></div>
+            <div class="rows" id="sumRows"></div>
+            <div class="total"><span class="muted">To pay</span><strong id="sumTotal">KES 0</strong></div>
+          </div>
+          <p class="field-hint" style="margin-top:16px">Need a different amount or a payment plan? <a class="text-link" href="mailto:hello@deon.dev">Email me</a></p>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-bottom">
+        <span>&copy; <span data-year></span> Deon. All rights reserved.</span>
+        <span><a href="mailto:hello@deon.dev">hello@deon.dev</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+  /* ── PayHero integration point ─────────────────────────────────────
+     Replace the body of these two functions once the backend exists:
+       stkPush  → POST /api/payments  (server calls PayHero, returns a reference)
+       status   → GET  /api/payments/:reference  (server reads PayHero callback)
+     Never call PayHero from the browser: the API credentials stay on the server. */
+  const PayHero = {
+    async stkPush({ amount, phone, reference, name, email }) {
+      await new Promise((r) => setTimeout(r, 700));
+      return { reference: 'PH' + Date.now().toString(36).toUpperCase() };
+    },
+    async status(reference) {
+      await new Promise((r) => setTimeout(r, 3200));
+      const code = Array.from({ length: 10 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 34)]).join('');
+      return { status: 'SUCCESS', mpesaCode: code, paidAt: Date.now() };
+    },
+  };
+
+  (() => {
+    const form = $('#payForm');
+    const show = (id) => {
+      ['payForm', 'stateWait', 'stateOk', 'stateFail'].forEach((s) => {
+        const el = $('#' + s);
+        if (s === 'payForm') el.style.display = id === s ? '' : 'none';
+        else el.classList.toggle('show', id === s);
+      });
+    };
+
+    form.service.innerHTML = SERVICES.map((s) => `<option value="${s.id}">${s.name}</option>`).join('') + '<option value="other">Other</option>';
+
+    /* Prefill from an invoice link: pay.html?inv=INV-2026-0001 */
+    let invoice = null;
+    const p = params();
+    const loadInvoice = (id) => {
+      invoice = id ? store.find('invoices', id.trim().toUpperCase()) : null;
+      $('#splitField').hidden = !invoice;
+      $('#serviceField').style.display = invoice ? 'none' : '';
+      form.amount.readOnly = !!invoice;
+      $('#invBadge').innerHTML = invoice ? '<span class="badge badge-due">Unpaid</span>' : '';
+      if (invoice) {
+        form.name.value ||= invoice.client.name;
+        form.email.value ||= invoice.client.email;
+        form.phone.value ||= invoice.client.phone;
+        $('#payTitle').textContent = `Pay invoice ${invoice.number}.`;
+      }
+      update();
+    };
+
+    const amountDue = () => {
+      if (!invoice) return Math.max(0, Math.round(Number(form.amount.value) || 0));
+      return form.portion.value === 'deposit' ? Math.round(invoice.total / 2) : Math.round(invoice.total);
+    };
+
+    const update = () => {
+      if (invoice) form.amount.value = amountDue();
+      const amt = amountDue();
+      const what = invoice ? `Invoice ${invoice.number}` : form.service.selectedOptions[0]?.text;
+      $('#sumRows').innerHTML =
+        `<div><span>For</span><span>${esc(what)}</span></div>` +
+        (invoice ? `<div><span>Invoice total</span><span>${kes(invoice.total)}</span></div>` : '') +
+        `<div><span>Method</span><span>M-Pesa</span></div>`;
+      $('#sumTotal').textContent = kes(amt);
+      $('#payBtn').textContent = amt ? `Pay ${kes(amt)}` : 'Pay';
+    };
+
+    if (p.inv) { form.ref.value = p.inv; loadInvoice(p.inv); }
+    if (p.amount && !invoice) form.amount.value = p.amount;
+    if (p.service) form.service.value = p.service;
+    form.ref.addEventListener('change', () => loadInvoice(form.ref.value));
+    form.addEventListener('input', update);
+    form.addEventListener('change', update);
+    update();
+
+    let cancelled = false;
+    $('#cancelBtn').addEventListener('click', () => { cancelled = true; show('stateFail'); });
+    $('#retryBtn').addEventListener('click', () => show('payForm'));
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const phone = normalisePhone(form.phone.value);
+      const checks = {
+        amount: amountDue() >= 1,
+        name: !!form.name.value.trim(),
+        email: form.email.checkValidity() && !!form.email.value.trim(),
+        phone: !!phone,
+      };
+      let first = null;
+      Object.entries(checks).forEach(([n, ok]) => {
+        form[n].closest('.field').classList.toggle('invalid', !ok);
+        if (!ok && !first) first = form[n];
+      });
+      if (first) return first.focus();
+
+      const amount = amountDue();
+      const payment = {
+        amount, phone,
+        name: form.name.value.trim(), email: form.email.value.trim(),
+        invoice: invoice?.number || form.ref.value.trim() || null,
+        description: invoice ? `Invoice ${invoice.number}${form.portion.value === 'deposit' ? ' (50% deposit)' : ''}` : form.service.selectedOptions[0].text,
+      };
+
+      cancelled = false;
+      $('#waitAmount').textContent = kes(amount);
+      $('#waitPhone').textContent = '+' + phone.replace(/(\d{3})(\d{3})(\d{3})(\d{3})/, '$1 $2 $3 $4');
+      show('stateWait');
+
+      try {
+        const { reference } = await PayHero.stkPush({ ...payment, reference: payment.invoice });
+        const res = await PayHero.status(reference);
+        if (cancelled) return;
+        if (res.status !== 'SUCCESS') throw new Error(res.message || 'Payment failed');
+
+        const id = nextNumber('RCT', 'receipts');
+        store.put('receipts', id, { id, ...payment, reference, mpesaCode: res.mpesaCode, paidAt: res.paidAt });
+        $('#okAmount').textContent = kes(amount);
+        $('#okCode').textContent = res.mpesaCode;
+        $('#receiptLink').href = 'receipt.html?id=' + encodeURIComponent(id);
+        show('stateOk');
+      } catch (err) {
+        if (cancelled) return;
+        $('#failMsg').textContent = err.message || 'Something went wrong. No money was taken.';
+        show('stateFail');
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

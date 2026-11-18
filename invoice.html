@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice | Deon</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0B6B53" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav-wrapper" id="nav">
+    <nav class="nav" aria-label="Main">
+      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <div class="nav-center">
+        <a href="index.html">Home</a>
+        <a href="services.html">Services</a>
+        <a href="index.html#process">How it works</a>
+        <a href="quote.html">Get a quote</a>
+        <a href="pay.html">Pay</a>
+      </div>
+      <div class="nav-right">
+        <a href="quote.html" class="btn btn-sm">Start a project</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+  <div class="nav-drawer" id="navDrawer">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="index.html#process">How it works</a>
+    <a href="quote.html">Get a quote</a>
+    <a href="pay.html">Pay</a>
+    <a href="quote.html" class="btn">Start a project</a>
+  </div>
+
+  <main class="page">
+    <div class="wrap">
+      <div class="page-head no-print">
+        <h1 class="type-statement">New invoice.</h1>
+        <p class="type-lede muted">Fill in the details on the left. Save it to get a payment link for the client, or print it as a PDF.</p>
+      </div>
+
+      <div class="split" style="grid-template-columns:minmax(0,5fr) minmax(0,7fr)">
+        <form class="panel form no-print" id="invForm" novalidate>
+          <div class="form-row">
+            <div class="field"><label for="i-number">Invoice no.</label><input id="i-number" name="number" class="mono" /></div>
+            <div class="field"><label for="i-due">Due in</label>
+              <select id="i-due" name="due">
+                <option value="0">On receipt</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field"><label for="i-name">Client name</label><input id="i-name" name="clientName" placeholder="Jane Wanjiku" /></div>
+            <div class="field"><label for="i-company">Company</label><input id="i-company" name="clientCompany" placeholder="Acme Ltd" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label for="i-email">Email</label><input id="i-email" name="clientEmail" type="email" placeholder="jane@acme.co.ke" /></div>
+            <div class="field"><label for="i-phone">Phone</label><input id="i-phone" name="clientPhone" type="tel" placeholder="0712 345 678" /></div>
+          </div>
+
+          <div>
+            <div class="item-head legend"><span>Item</span><span>Qty</span><span>Rate</span><span></span></div>
+            <div class="items" id="items"></div>
+            <button type="button" class="add-line" id="addLine"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Add line</button>
+          </div>
+
+          <label class="toggle"><input type="checkbox" name="vat" /> Add VAT (16%)</label>
+
+          <div class="field"><label for="i-notes">Notes</label><textarea id="i-notes" name="notes" style="min-height:80px">50% deposit to start, balance on delivery. Thank you for your business.</textarea></div>
+
+          <div style="display:grid;gap:12px">
+            <button type="button" class="btn btn-ink btn-full" id="saveBtn">Save &amp; copy payment link</button>
+            <button type="button" class="btn btn-outline btn-full" id="printBtn">Print / save PDF</button>
+          </div>
+        </form>
+
+        <div class="sticky">
+          <article class="doc" id="doc" aria-label="Invoice preview"></article>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+  (() => {
+    const form = $('#invForm');
+    const itemsEl = $('#items');
+    form.number.value = nextNumber('INV', 'invoices');
+
+    const addLine = (desc = '', qty = 1, rate = '') => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <div class="field"><input aria-label="Item" data-k="desc" placeholder="Website design &amp; build" value="${esc(desc)}" /></div>
+        <div class="field"><input aria-label="Quantity" data-k="qty" type="number" min="0" step="1" value="${qty}" /></div>
+        <div class="field"><input aria-label="Rate in KES" data-k="rate" type="number" min="0" step="1" placeholder="0" value="${rate}" /></div>
+        <button type="button" class="icon-btn" aria-label="Remove line"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>`;
+      row.querySelector('.icon-btn').addEventListener('click', () => {
+        if (itemsEl.children.length > 1) row.remove();
+        render();
+      });
+      itemsEl.append(row);
+    };
+
+    const read = () => {
+      const items = $$('.item-row', itemsEl).map((r) => ({
+        desc: $('[data-k=desc]', r).value.trim(),
+        qty: Number($('[data-k=qty]', r).value) || 0,
+        rate: Number($('[data-k=rate]', r).value) || 0,
+      })).filter((i) => i.desc || i.rate);
+      const subtotal = items.reduce((a, i) => a + i.qty * i.rate, 0);
+      const vat = form.vat.checked ? Math.round(subtotal * 0.16) : 0;
+      const issued = Date.now();
+      return {
+        number: form.number.value.trim().toUpperCase(),
+        issued, due: issued + Number(form.due.value) * 864e5, dueDays: Number(form.due.value),
+        client: { name: form.clientName.value.trim(), company: form.clientCompany.value.trim(), email: form.clientEmail.value.trim(), phone: form.clientPhone.value.trim() },
+        items, subtotal, vat, total: subtotal + vat, notes: form.notes.value.trim(),
+      };
+    };
+
+    const render = () => {
+      const inv = read();
+      const c = inv.client;
+      $('#doc').innerHTML = `
+        <header class="doc-head">
+          <div class="doc-brand">
+            <span class="nav-logo">deon<span>.</span></span>
+            <p>${BUSINESS.title}<br>${BUSINESS.email} · ${BUSINESS.phone}<br>${BUSINESS.location}${BUSINESS.pin ? ' · PIN ' + BUSINESS.pin : ''}</p>
+          </div>
+          <div class="doc-kind"><h2>Invoice</h2><p class="mono">${esc(inv.number)}</p></div>
+        </header>
+        <div class="doc-meta">
+          <div><span class="type-label">Billed to</span><p>${esc(c.name) || '<span class="muted">Client name</span>'}${c.company ? '<br>' + esc(c.company) : ''}${c.email ? '<br>' + esc(c.email) : ''}${c.phone ? '<br>' + esc(c.phone) : ''}</p></div>
+          <div><span class="type-label">Issued</span><p>${fmtDate(inv.issued)}</p></div>
+          <div><span class="type-label">Due</span><p>${inv.dueDays ? fmtDate(inv.due) : 'On receipt'}</p></div>
+        </div>
+        <table class="doc-table">
+          <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+          <tbody>${inv.items.length ? inv.items.map((i) => `<tr><td>${esc(i.desc)}</td><td>${i.qty}</td><td>${kes(i.rate)}</td><td>${kes(i.qty * i.rate)}</td></tr>`).join('')
+            : '<tr><td colspan="4" class="muted">Add a line item</td></tr>'}</tbody>
+        </table>
+        <div class="doc-totals">
+          <div><span>Subtotal</span><span>${kes(inv.subtotal)}</span></div>
+          ${inv.vat ? `<div><span>VAT 16%</span><span>${kes(inv.vat)}</span></div>` : ''}
+          <div class="grand"><span>Total due</span><span>${kes(inv.total)}</span></div>
+        </div>
+        <footer class="doc-foot">
+          <p>${esc(inv.notes).replace(/\n/g, '<br>')}</p>
+          <p style="text-align:right">Pay online with M-Pesa<br><strong style="color:var(--ink)">${location.host || 'deon.dev'}/pay</strong> · ref <span class="mono">${esc(inv.number)}</span></p>
+        </footer>`;
+      return inv;
+    };
+
+    addLine();
+    form.addEventListener('input', render);
+    form.addEventListener('change', render);
+    $('#addLine').addEventListener('click', () => { addLine(); render(); $$('[data-k=desc]', itemsEl).pop().focus(); });
+    render();
+
+    $('#printBtn').addEventListener('click', () => print());
+
+    $('#saveBtn').addEventListener('click', async () => {
+      const inv = read();
+      if (!inv.client.name) { form.clientName.closest('.field').classList.add('invalid'); return form.clientName.focus(); }
+      if (!inv.total) return toast('Add at least one line item with a rate');
+      form.clientName.closest('.field').classList.remove('invalid');
+
+      // TODO(backend): POST /api/invoices and email the client the link.
+      store.put('invoices', inv.number, inv);
+      const link = new URL('pay.html?inv=' + encodeURIComponent(inv.number), location.href).href;
+      try { await navigator.clipboard.writeText(link); toast('Saved. Payment link copied'); }
+      catch { toast('Saved. Link: ' + link); }
+    });
+  })();
+  </script>
+</body>
+</html>

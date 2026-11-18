@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deon | Software Developer</title>
+  <meta name="description" content="Independent software developer. Websites, web and mobile apps, and payment integrations. Get a quote, pay with M-Pesa, and get your receipt instantly." />
+  <meta name="theme-color" content="#0B6B53" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav-wrapper" id="nav">
+    <nav class="nav" aria-label="Main">
+      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <div class="nav-center">
+        <a href="index.html" class="active">Home</a>
+        <a href="services.html">Services</a>
+        <a href="index.html#process">How it works</a>
+        <a href="quote.html">Get a quote</a>
+        <a href="pay.html">Pay</a>
+      </div>
+      <div class="nav-right">
+        <a href="quote.html" class="btn btn-sm">Start a project</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+  <div class="nav-drawer" id="navDrawer">
+    <a href="index.html" class="active">Home</a>
+    <a href="services.html">Services</a>
+    <a href="index.html#process">How it works</a>
+    <a href="quote.html">Get a quote</a>
+    <a href="pay.html">Pay</a>
+    <a href="quote.html" class="btn">Start a project</a>
+  </div>
+
+  <!-- HERO: centred, over the dot wave (script.js) -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-field" aria-hidden="true"><canvas id="heroField"></canvas></div>
+    <div class="wrap hero-inner">
+      <h1 id="hero-title" class="type-display hero-anim" aria-label="I build software that just works.">
+        <span class="line" aria-hidden="true">I build</span>
+        <span class="line" aria-hidden="true"><span class="typed" id="typed" data-words="web apps,mobile apps,websites,APIs,payment flows">web apps</span><span class="typed-caret"></span></span>
+        <span class="line" aria-hidden="true">that just work.</span>
+      </h1>
+      <p class="type-lede muted hero-anim" style="animation-delay:.15s">
+        Independent software developer. Get a quote in two minutes, pay
+        securely with M-Pesa, and get your receipt instantly.
+      </p>
+      <div class="hero-actions hero-anim" style="animation-delay:.3s">
+        <a href="quote.html" class="btn btn-ink">Get a quote <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <a href="pay.html" class="btn btn-outline">Pay an invoice</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="chapter tone-white" id="services" aria-labelledby="services-title">
+    <div class="wrap">
+      <div class="grid12">
+        <h2 id="services-title" class="type-statement mw-16 c-7" data-anim>Six services. One standard.</h2>
+        <div class="c-4 start-9 self-end" data-anim style="--delay:120ms">
+          <p class="type-lede muted">Clear starting prices. Every project gets a fixed quote before any work begins, so you know the cost up front.</p>
+          <a href="services.html" class="text-link type-label" style="margin-top:24px">All services</a>
+        </div>
+      </div>
+      <ol class="svc-rows push" id="serviceRows"></ol>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="chapter tone-ink" id="process" aria-labelledby="process-title">
+    <div class="wrap">
+      <div class="grid12">
+        <h2 id="process-title" class="type-statement mw-16 c-7" data-anim>From quote to receipt, in one place.</h2>
+        <p class="type-lede muted c-4 start-9 self-end" data-anim style="--delay:120ms">No back and forth over email. Every step, from your first message to your final receipt, happens on this site.</p>
+      </div>
+      <ol class="steps push">
+        <li data-anim><span class="type-label muted">01</span><h3>Request a quote</h3><p class="muted">Pick what you need and see an estimate straight away.</p></li>
+        <li data-anim style="--delay:70ms"><span class="type-label muted">02</span><h3>Get an invoice</h3><p class="muted">A fixed price within 24 hours, with a link to pay.</p></li>
+        <li data-anim style="--delay:140ms"><span class="type-label muted">03</span><h3>Pay with M-Pesa</h3><p class="muted">Approve the prompt on your phone. A deposit starts the work.</p></li>
+        <li data-anim style="--delay:210ms"><span class="type-label muted">04</span><h3>Get your receipt</h3><p class="muted">Generated the moment payment lands. Download it any time.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- CLOSING -->
+  <section class="chapter tone-green" aria-labelledby="start-title">
+    <div class="wrap">
+      <div class="grid12 my-auto">
+        <h2 id="start-title" class="type-statement mw-14 c-8" data-anim>Tell me what you're building.</h2>
+        <div class="c-4 self-end" data-anim style="--delay:120ms">
+          <p class="type-lede muted">Send a short brief. I reply within one business day with questions, or a quote.</p>
+          <div style="margin-top:40px;display:flex;flex-wrap:wrap;align-items:center;gap:20px 32px">
+            <a href="quote.html" class="btn btn-white">Start a project <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <a href="pay.html" class="text-link type-label">Pay an invoice</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-main">
+        <div class="footer-brand">
+          <a href="index.html" class="nav-logo">deon<span>.</span></a>
+          <p>Independent software developer.<br>Websites, apps and payment integrations.</p>
+        </div>
+        <div class="footer-cols">
+          <div class="footer-col">
+            <h5>Clients</h5>
+            <ul>
+              <li><a href="quote.html">Get a quote</a></li>
+              <li><a href="pay.html">Pay an invoice</a></li>
+              <li><a href="receipt.html">Find a receipt</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h5>Contact</h5>
+            <ul>
+              <li><a href="mailto:hello@deon.dev">hello@deon.dev</a></li>
+              <li><a href="tel:+254700000000">+254 700 000 000</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span data-year></span> Deon. All rights reserved.</span>
+        <span>Payments secured by M-Pesa.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

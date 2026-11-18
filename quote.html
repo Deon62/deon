@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get a quote | Deon</title>
+  <meta name="theme-color" content="#0B6B53" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav-wrapper" id="nav">
+    <nav class="nav" aria-label="Main">
+      <a href="index.html" class="nav-logo" aria-label="Deon, home">deon<span>.</span></a>
+      <div class="nav-center">
+        <a href="index.html">Home</a>
+        <a href="services.html">Services</a>
+        <a href="index.html#process">How it works</a>
+        <a href="quote.html" class="active">Get a quote</a>
+        <a href="pay.html">Pay</a>
+      </div>
+      <div class="nav-right">
+        <a href="quote.html" class="btn btn-sm">Start a project</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+  <div class="nav-drawer" id="navDrawer">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="index.html#process">How it works</a>
+    <a href="quote.html" class="active">Get a quote</a>
+    <a href="pay.html">Pay</a>
+    <a href="quote.html" class="btn">Start a project</a>
+  </div>
+
+  <main class="page">
+    <div class="wrap">
+      <div class="page-head">
+        <h1 class="type-statement hero-anim" style="animation-delay:.08s">Tell me what you're building.</h1>
+        <p class="type-lede muted hero-anim" style="animation-delay:.16s">Pick what fits and see an estimate right away. I'll confirm a fixed quote within 24 hours.</p>
+      </div>
+
+      <div class="split">
+        <form class="panel form hero-anim" id="quoteForm" style="animation-delay:.24s" novalidate>
+          <fieldset class="field" id="typeField">
+            <legend class="legend">What do you need? <span style="letter-spacing:0;text-transform:none">(choose one or more)</span></legend>
+            <div class="options" id="typeOptions"></div>
+          </fieldset>
+
+          <fieldset class="field">
+            <legend class="legend">Extras</legend>
+            <div class="options" id="extraOptions"></div>
+          </fieldset>
+
+          <fieldset class="field">
+            <legend class="legend">Timeline</legend>
+            <div class="options">
+              <label class="option"><input type="radio" name="timeline" value="flexible" /><span class="option-name">Flexible</span><span class="option-meta">−10%</span></label>
+              <label class="option"><input type="radio" name="timeline" value="standard" checked /><span class="option-name">Standard</span><span class="option-meta">No change</span></label>
+              <label class="option"><input type="radio" name="timeline" value="rush" /><span class="option-name">Rush</span><span class="option-meta">+25%</span></label>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <label for="q-brief">Brief</label>
+            <textarea id="q-brief" name="brief" placeholder="What is it, who is it for, and anything you already have (designs, a domain, an old site)."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="field"><label for="q-name">Name</label><input id="q-name" name="name" autocomplete="name" required placeholder="Jane Wanjiku" /></div>
+            <div class="field"><label for="q-company">Company <span style="letter-spacing:0;text-transform:none">(optional)</span></label><input id="q-company" name="company" autocomplete="organization" placeholder="Acme Ltd" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label for="q-email">Email</label><input id="q-email" name="email" type="email" autocomplete="email" required placeholder="jane@acme.co.ke" /></div>
+            <div class="field"><label for="q-phone">Phone</label><input id="q-phone" name="phone" type="tel" autocomplete="tel" placeholder="0712 345 678" /></div>
+          </div>
+
+          <button type="submit" class="btn btn-ink btn-full">Send request <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </form>
+
+        <aside class="sticky hero-anim" style="animation-delay:.32s">
+          <div class="panel" id="estimatePanel">
+            <div class="panel-title"><h2>Estimate</h2><span class="type-label muted" id="estRef"></span></div>
+            <div class="rows" id="estRows"></div>
+            <div class="total"><span class="muted">Estimated range</span><strong id="estTotal">—</strong></div>
+            <p class="field-hint" style="margin-top:16px">An estimate, not a final price. 50% deposit to start, balance on delivery.</p>
+          </div>
+
+          <div class="panel state" id="quoteDone" aria-live="polite">
+            <div class="state-icon ok"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Request sent</h3>
+            <p>Thanks, <span id="doneName"></span>. Your reference is <strong class="mono" id="doneRef"></strong>. You'll get a fixed quote by email within 24 hours.</p>
+            <div class="btn-stack"><a href="index.html" class="btn btn-outline">Back home</a></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-bottom">
+        <span>&copy; <span data-year></span> Deon. All rights reserved.</span>
+        <span><a href="mailto:hello@deon.dev">hello@deon.dev</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+  (() => {
+    const EXTRAS = [
+      { id: 'mpesa',  name: 'M-Pesa payments', cost: 25000 },
+      { id: 'auth',   name: 'User accounts',   cost: 20000 },
+      { id: 'admin',  name: 'Admin dashboard', cost: 35000 },
+      { id: 'cms',    name: 'Editable content', cost: 15000 },
+      { id: 'design', name: 'Custom design',   cost: 30000 },
+      { id: 'seo',    name: 'SEO setup',       cost: 10000 },
+    ];
+    const RATE = { flexible: 0.9, standard: 1, rush: 1.25 };
+    const quotable = SERVICES.filter((s) => !s.unit); // fixed-price project types
+
+    $('#typeOptions').innerHTML = quotable.map((s) =>
+      `<label class="option"><input type="checkbox" name="type" value="${s.id}" /><span class="option-name">${s.name}</span><span class="option-meta">from ${kes(s.from)}</span></label>`).join('');
+    $('#extraOptions').innerHTML = EXTRAS.map((e) =>
+      `<label class="option"><input type="checkbox" name="extras" value="${e.id}" /><span class="option-name">${e.name}</span><span class="option-meta">+ ${kes(e.cost)}</span></label>`).join('');
+
+    const pre = params().service;
+    const first = $(`input[name=type][value="${pre}"]`) || $('input[name=type]');
+    first.checked = true;
+
+    const form = $('#quoteForm');
+    const ref = nextNumber('QT', 'quotes');
+    $('#estRef').textContent = ref;
+
+    const estimate = () => {
+      const types = $$('input[name=type]:checked').map((i) => SERVICES.find((s) => s.id === i.value));
+      const extras = $$('input[name=extras]:checked').map((i) => EXTRAS.find((e) => e.id === i.value));
+      const tl = form.timeline.value;
+      const base = [...types.map((t) => t.from), ...extras.map((e) => e.cost)].reduce((a, n) => a + n, 0);
+      const low = base * RATE[tl];
+      const high = low * 1.4;
+      return { types, extras, tl, low, high };
+    };
+
+    const render = () => {
+      const e = estimate();
+      $('#typeField').classList.remove('invalid');
+      if (!e.types.length) {
+        $('#estRows').innerHTML = '<div><span>Choose at least one project type</span><span></span></div>';
+        $('#estTotal').textContent = '—';
+        return;
+      }
+      $('#estRows').innerHTML =
+        e.types.map((t) => `<div><span>${esc(t.name)}</span><span>from ${kes(t.from)}</span></div>`).join('') +
+        e.extras.map((x) => `<div><span>${esc(x.name)}</span><span>+ ${kes(x.cost)}</span></div>`).join('') +
+        `<div><span>Timeline</span><span style="text-transform:capitalize">${e.tl}</span></div>`;
+      const k = (n) => Math.round(n / 1000).toLocaleString('en-KE') + 'k';
+      $('#estTotal').textContent = `KES ${k(e.low)}–${k(e.high)}`;
+    };
+    form.addEventListener('change', render);
+    render();
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      let ok = true;
+      if (!$$('input[name=type]:checked').length) {
+        $('#typeField').classList.add('invalid');
+        $('input[name=type]').focus();
+        $('#typeField').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      ['name', 'email'].forEach((n) => {
+        const f = form[n];
+        const bad = !f.value.trim() || (n === 'email' && !f.checkValidity());
+        f.closest('.field').classList.toggle('invalid', bad);
+        if (bad && ok) { f.focus(); ok = false; }
+      });
+      if (!ok) return;
+
+      const e = estimate();
+      // TODO(backend): POST /api/quotes, then email the client and notify me.
+      store.put('quotes', ref, {
+        ref, created: Date.now(),
+        types: e.types.map((t) => t.id), extras: e.extras.map((x) => x.id), timeline: e.tl,
+        low: e.low, high: e.high,
+        brief: form.brief.value.trim(), name: form.name.value.trim(), company: form.company.value.trim(),
+        email: form.email.value.trim(), phone: form.phone.value.trim(),
+      });
+
+      $('#doneName').textContent = form.name.value.trim().split(' ')[0];
+      $('#doneRef').textContent = ref;
+      form.querySelector('button[type=submit]').disabled = true;
+      $('#estimatePanel').style.display = 'none';
+      $('#quoteDone').classList.add('show');
+      $('#quoteDone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  })();
+  </script>
+</body>
+</html>
