@@ -10,6 +10,17 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def unique_emails(emails) -> list[str]:
+    """Drop blanks and repeats (case-insensitive), keep order."""
+    seen, out = set(), []
+    for e in emails:
+        e = str(e or "").strip()
+        if "@" in e and e.lower() not in seen:
+            seen.add(e.lower())
+            out.append(e)
+    return out
+
+
 # Overall project status, separate from the stage it's in.
 STATUSES: dict[str, str] = {"active": "Active", "paused": "On hold", "completed": "Completed"}
 
@@ -48,7 +59,10 @@ class Project(Base):
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(160))
     client_name: Mapped[str] = mapped_column(String(120))
-    client_email: Mapped[str] = mapped_column(String(200), index=True)
+    client_email: Mapped[str] = mapped_column(String(200), index=True)  # main contact
+    # Everyone else on the client's side. They get the same emails and can open /track.
+    extra_emails: Mapped[list | None] = mapped_column(JSON, default=list)
+    price: Mapped[int | None] = mapped_column(Integer, nullable=True)  # agreed total, if set
     summary: Mapped[str] = mapped_column(Text, default="")
     stage: Mapped[str] = mapped_column(String(20), default="discovery")
     status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
@@ -62,6 +76,22 @@ class Project(Base):
         back_populates="project", order_by="ProjectUpdate.created_at.desc()", cascade="all, delete-orphan"
     )
     invoices: Mapped[list["Invoice"]] = relationship(back_populates="project", order_by="Invoice.created_at")
+
+    @property
+    def emails(self) -> list[str]:
+        return unique_emails([self.client_email, *(self.extra_emails or [])])
+
+    @property
+    def invoiced(self) -> int:
+        return sum(i.total for i in self.invoices)
+
+    @property
+    def paid(self) -> int:
+        return sum(i.paid for i in self.invoices)
+
+    @property
+    def balance(self) -> int:
+        return sum(i.balance for i in self.invoices)
 
 
 class ProjectUpdate(Base):
@@ -99,6 +129,11 @@ class Invoice(Base):
 
     project: Mapped[Project | None] = relationship(back_populates="invoices")
     payments: Mapped[list["Payment"]] = relationship(back_populates="invoice")
+
+    @property
+    def recipients(self) -> list[str]:
+        """The invoice contact plus everyone on its project."""
+        return unique_emails([self.client_email, *(self.project.emails if self.project else [])])
 
     @property
     def lines(self) -> list[dict]:

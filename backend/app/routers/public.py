@@ -120,7 +120,8 @@ async def start_payment(body: PaymentIn, db: Session = Depends(get_db)):
     return PaymentStarted(reference=payment.reference, amount=amount)
 
 
-def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks, email_client: bool = True) -> None:
+def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks, email_client: bool = True,
+                 notify_admin: bool = True) -> None:
     if p.status == "success":
         return
     p.status = "success"
@@ -140,7 +141,8 @@ def mark_success(db: Session, p: Payment, mpesa_code: str, bg: BackgroundTasks, 
     }
     if email_client and "@" in p.email:
         bg.add_task(emails.send, p.email, *emails.payment_receipt(data))
-    bg.add_task(emails.send, get_settings().notify_email, *emails.payment_notify(data), reply_to=p.email)
+    if notify_admin:
+        bg.add_task(emails.send, get_settings().notify_email, *emails.payment_notify(data), reply_to=p.email or None)
 
 
 def mark_failed(db: Session, p: Payment, message: str) -> None:
@@ -253,7 +255,7 @@ def track(body: TrackIn, db: Session = Depends(get_db)):
         .options(selectinload(Project.updates), selectinload(Project.invoices).selectinload(Invoice.payments))
     )
     # Same message for "no such code" and "wrong email", so codes can't be probed.
-    if not p or p.client_email.strip().lower() != str(body.email).strip().lower():
+    if not p or str(body.email).strip().lower() not in {e.lower() for e in p.emails}:
         raise HTTPException(404, "No project matches that code and email.")
 
     keys = list(STAGES)

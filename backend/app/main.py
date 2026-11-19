@@ -21,7 +21,11 @@ DEMO_CODE, DEMO_EMAIL = "DO-DEMO01", "demo@deon.ardena.co.ke"
 def add_missing_columns() -> None:
     """create_all() makes new tables but never alters old ones. Add columns introduced later."""
     wanted = {
-        "projects": {"status": "VARCHAR(20) NOT NULL DEFAULT 'active'"},
+        "projects": {
+            "status": "VARCHAR(20) NOT NULL DEFAULT 'active'",
+            "extra_emails": "JSON",
+            "price": "INTEGER",
+        },
         "payments": {"method": "VARCHAR(40) NOT NULL DEFAULT 'M-Pesa'"},
     }
     insp = inspect(engine)

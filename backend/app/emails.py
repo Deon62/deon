@@ -38,12 +38,16 @@ def enabled() -> bool:
     return bool(get_settings().resend_api_key)
 
 
-async def send(to: str, subject: str, html: str, text: str, reply_to: str | None = None) -> bool:
+async def send(to: str | list[str], subject: str, html: str, text: str, reply_to: str | None = None) -> bool:
+    """One email to one or more people. With several, they all see each other (a client team), so reply-all works."""
     s = get_settings()
+    to = [t for t in ([to] if isinstance(to, str) else to) if t and "@" in t][:50]
+    if not to:
+        return False
     if not s.resend_api_key:
         log.info("email skipped (RESEND_API_KEY not set): %s -> %s", subject, to)
         return False
-    body = {"from": s.email_from, "to": [to], "subject": subject, "html": html, "text": text,
+    body = {"from": s.email_from, "to": to, "subject": subject, "html": html, "text": text,
             "reply_to": reply_to or s.email_reply_to}
     try:
         async with httpx.AsyncClient(timeout=20) as c:
@@ -289,22 +293,51 @@ def payment_notify(pay: dict) -> tuple[str, str, str]:
     return subject, html, plain(subject, pay["description"], f"M-Pesa: {pay['mpesa_code']}")
 
 
-def project_welcome(pr: dict) -> tuple[str, str, str]:
+def project_welcome(pr: dict, money: dict | None = None) -> tuple[str, str, str]:
+    """money (optional): {invoice, total, paid, balance, due_date, receipt_token} for the project's price."""
     name = first_name(pr["client_name"])
     track = url(f"/track?code={pr['code']}")
+    team = pr.get("emails") or [pr["client_email"]]
     subject = f"We're underway: {pr['title']}"
+    who = (
+        f"Open your project page with this code and <strong style='font-weight:600'>{e(team[0])}</strong>."
+        if len(team) == 1 else
+        "Everyone on this email can open your project page with this code and their own email address: "
+        + ", ".join(f"<strong style='font-weight:600'>{e(x)}</strong>" for x in team) + "."
+    )
+    payments = ""
+    if money:
+        payments = (
+            label("Payments")
+            + details([
+                ("Agreed price", kes(money["total"])),
+                ("Deposit received", f"<span style='color:{GREEN}'>{kes(money['paid'])}</span>" if money.get("paid") else ""),
+                ("Balance", f"<strong style='font-weight:600'>{kes(money['balance'])}</strong>"),
+                ("Balance due", e(fmt_date(money["due_date"])) if money.get("due_date") and money.get("balance") else ""),
+                ("Invoice", f'<span style="font-family:{MONO}">{e(money["invoice"])}</span>'),
+            ])
+            + p("Pay the balance any time from your project page with M-Pesa, or by the method we agreed."
+                if money.get("balance") else "The project is fully paid. Thank you.", muted=True, size=14)
+        )
     body = (
         p(f"Your project <strong style='font-weight:600'>{e(pr['title'])}</strong> has officially started. Thank you for trusting me with it.")
         + p("You don't need to chase me for updates. Everything I ship, every milestone and any invoice shows up on your project page, and I'll email you when something important happens.", muted=True)
         + code_box(pr["code"], "Your project code")
-        + p(f"Open your project page with this code and <strong style='font-weight:600'>{e(pr['client_email'])}</strong>.", muted=True, size=14)
-        + buttons(button("Track your project", track))
+        + p(who, muted=True, size=14)
+        + buttons(
+            button("Track your project", track),
+            button("Deposit receipt", url(f"/receipt?id={money['receipt_token']}"), primary=False) if money and money.get("receipt_token") else "",
+        )
         + (label("Target date") + p(e(fmt_date(pr["due_date"])), size=15) if pr.get("due_date") else "")
+        + payments
     )
     html = layout(preheader=f"Your project code is {pr['code']}. Follow progress anytime.", heading=f"We're underway, {name}.", body=body)
     text = plain(
         f"We're underway, {name}.", "", f"Your project \"{pr['title']}\" has started.", "",
-        f"Project code: {pr['code']}", f"Track it here (with {pr['client_email']}): {track}", "", "Talk soon,", "Deon",
+        f"Project code: {pr['code']}", f"Track it here (with {' or '.join(team)}): {track}",
+        *([ "", f"Agreed price: {kes(money['total'])}", f"Deposit received: {kes(money['paid'])}",
+            f"Balance: {kes(money['balance'])} (invoice {money['invoice']})"] if money else []),
+        "", "Talk soon,", "Deon",
     )
     return subject, html, text
 
@@ -344,7 +377,10 @@ def qty_note(qty) -> str:
 def invoice_issued(inv: dict) -> tuple[str, str, str]:
     name = first_name(inv["client_name"])
     pay_url = url(f"/pay?inv={inv['number']}")
-    subject = f"Invoice {inv['number']} from Deon Orina, {kes(inv['total'])}"
+    paid = int(inv.get("paid") or 0)
+    due = int(inv["balance"]) if inv.get("balance") is not None else inv["total"]
+    subject = (f"Invoice {inv['number']}: balance of {kes(due)}" if paid
+               else f"Invoice {inv['number']} from Deon Orina, {kes(inv['total'])}")
     items = "".join(
         f'<tr><td style="padding:12px 0;border-bottom:1px solid {LINE};font-family:{FONT};font-size:14px;color:{INK}">{e(i["desc"])}'
         f'{qty_note(i["qty"])}</td>'
@@ -353,10 +389,16 @@ def invoice_issued(inv: dict) -> tuple[str, str, str]:
     )
     totals = (
         (f'<tr><td style="padding:10px 0 0;font-family:{FONT};font-size:14px;color:{MUTED}">VAT 16%</td><td align="right" style="padding:10px 0 0;font-family:{FONT};font-size:14px;color:{MUTED}">{kes(inv["vat"])}</td></tr>' if inv["vat"] else "")
-        + f'<tr><td style="padding:14px 0 0;font-family:{FONT};font-size:17px;font-weight:600;color:{INK}">Total due</td><td align="right" style="padding:14px 0 0;font-family:{FONT};font-size:17px;font-weight:600;color:{INK}">{kes(inv["total"])}</td></tr>'
+        + (
+            f'<tr><td style="padding:14px 0 0;font-family:{FONT};font-size:14px;color:{MUTED}">Total</td><td align="right" style="padding:14px 0 0;font-family:{FONT};font-size:14px;color:{MUTED}">{kes(inv["total"])}</td></tr>'
+            f'<tr><td style="padding:10px 0 0;font-family:{FONT};font-size:14px;color:{GREEN}">Paid so far</td><td align="right" style="padding:10px 0 0;font-family:{FONT};font-size:14px;color:{GREEN}">&minus; {kes(paid)}</td></tr>'
+            if paid else ""
+        )
+        + f'<tr><td style="padding:14px 0 0;font-family:{FONT};font-size:17px;font-weight:600;color:{INK}">{"Balance due" if paid else "Total due"}</td><td align="right" style="padding:14px 0 0;font-family:{FONT};font-size:17px;font-weight:600;color:{INK}">{kes(due)}</td></tr>'
     )
     body = (
-        p(f"Hi {e(name)}, here's your invoice. You can pay it with M-Pesa in under a minute: tap the button, confirm, and approve the prompt on your phone.", muted=True)
+        p(f"Hi {e(name)}, " + ("here's your invoice for the balance. Thank you for the payment so far." if paid else "here's your invoice.")
+          + " You can pay it with M-Pesa in under a minute: tap the button, confirm, and approve the prompt on your phone.", muted=True)
         + details([
             ("Invoice", f'<span style="font-family:{MONO}">{e(inv["number"])}</span>'),
             ("Issued", e(fmt_date(inv["created_at"]))),
@@ -364,15 +406,16 @@ def invoice_issued(inv: dict) -> tuple[str, str, str]:
         ])
         + f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 0">{items}{totals}</table>'
         + buttons(
-            button(f"Pay {kes(inv['total'])} with M-Pesa", pay_url),
+            button(f"Pay {kes(due)} with M-Pesa", pay_url),
             button("Track your project", url(f"/track?code={inv['project_code']}"), primary=False) if inv.get("project_code") else "",
         )
         + (p(e(inv["notes"]).replace("\n", "<br>"), muted=True, size=14) if inv.get("notes") else "")
     )
-    html = layout(preheader=f"{kes(inv['total'])} due. Pay with M-Pesa in a minute.", heading=f"Invoice {inv['number']}", body=body)
+    html = layout(preheader=f"{kes(due)} due. Pay with M-Pesa in a minute.", heading=f"Invoice {inv['number']}", body=body)
     text = plain(
         f"Hi {name},", "", f"Invoice {inv['number']}: {kes(inv['total'])}",
-        *[f"- {i['desc']}: {kes(float(i['qty']) * i['rate'])}" for i in inv["items"]], "",
+        *[f"- {i['desc']}: {kes(float(i['qty']) * i['rate'])}" for i in inv["items"]],
+        *([f"Paid so far: {kes(paid)}", f"Balance due: {kes(due)}"] if paid else []), "",
         f"Pay with M-Pesa: {pay_url}", "", "Talk soon,", "Deon",
     )
     return subject, html, text

@@ -92,12 +92,22 @@
               <div class="field"><label for="np-name">Client name</label><input id="np-name" name="client_name" /></div>
               <div class="field"><label for="np-email">Client email</label><input id="np-email" name="client_email" type="email" /></div>
             </div>
+            <div class="field"><label for="np-team">Other emails <span class="opt">(optional, separate with commas)</span></label><input id="np-team" name="extra_emails" placeholder="cto@acme.co, finance@acme.co" /><p class="field-hint">They get the same emails and can open the tracker with their own address.</p></div>
             <div class="field"><label for="np-summary">Summary <span class="opt">(the client sees this)</span></label><textarea id="np-summary" name="summary" style="min-height:72px"></textarea></div>
             <div class="form-row">
               <div class="field"><label for="np-due">Target date</label><input id="np-due" name="due_date" type="date" /></div>
               <div class="field"><label for="np-quote">From quote <span class="opt">(optional)</span></label><input id="np-quote" name="quote_number" class="mono" placeholder="QT-2026-0001" /></div>
             </div>
-            <label class="toggle"><input type="checkbox" name="notify" checked /> Email the client their tracking code</label>
+            <div class="form-row">
+              <div class="field"><label for="np-price">Agreed price <span class="opt">(optional)</span></label><div class="prefix-input"><span>KES</span><input id="np-price" name="price" type="number" min="1" step="1" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label for="np-deposit">Deposit received <span class="opt">(optional)</span></label><div class="prefix-input"><span>KES</span><input id="np-deposit" name="deposit" type="number" min="0" step="1" inputmode="numeric" placeholder="0" /></div></div>
+            </div>
+            <div class="form-row" data-deposit hidden>
+              <div class="field"><label for="np-method">Deposit paid by</label><select id="np-method" name="deposit_method"><option>M-Pesa</option><option>Bank transfer</option><option>Cash</option><option>Other</option></select></div>
+              <div class="field"><label for="np-ref">Reference <span class="opt">(optional)</span></label><input id="np-ref" name="deposit_reference" class="mono" /></div>
+            </div>
+            <p class="field-hint" id="npMoney" hidden></p>
+            <label class="toggle"><input type="checkbox" name="notify" checked /> Email the client their tracking code<span data-money-note hidden> and the balance</span></label>
             <button class="btn btn-ink btn-full" type="submit">Create project</button>
             <div class="adm-note" id="npDone" hidden></div>
           </form>
@@ -121,10 +131,19 @@
             </div>
             <div class="field"><label for="ch-desc">What it's for</label><input id="ch-desc" name="desc" placeholder="50% deposit: website design & build" /></div>
             <div class="form-row">
-              <div class="field"><label for="ch-amount">Amount</label><div class="prefix-input"><span>KES</span><input id="ch-amount" name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="0" /></div></div>
-              <div class="field"><label for="ch-due">Due</label><select id="ch-due" name="due"><option value="0">On receipt</option><option value="3">In 3 days</option><option value="7" selected>In 7 days</option><option value="14">In 14 days</option><option value="30">In 30 days</option></select></div>
+              <div class="field"><label for="ch-amount">Total amount</label><div class="prefix-input"><span>KES</span><input id="ch-amount" name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label for="ch-deposit">Already received <span class="opt">(optional)</span></label><div class="prefix-input"><span>KES</span><input id="ch-deposit" name="deposit" type="number" min="0" step="1" inputmode="numeric" placeholder="0" /></div></div>
             </div>
-            <label class="toggle"><input type="checkbox" name="send" checked /> Email it to the client with a Pay button</label>
+            <div class="form-row" data-deposit hidden>
+              <div class="field"><label for="ch-method">Paid by</label><select id="ch-method" name="deposit_method"><option>M-Pesa</option><option>Bank transfer</option><option>Cash</option><option>Other</option></select></div>
+              <div class="field"><label for="ch-ref">Reference <span class="opt">(optional)</span></label><input id="ch-ref" name="deposit_reference" class="mono" /></div>
+            </div>
+            <p class="field-hint" id="chMoney" hidden></p>
+            <div class="form-row">
+              <div class="field"><label for="ch-due">Due</label><select id="ch-due" name="due"><option value="0">On receipt</option><option value="3">In 3 days</option><option value="7" selected>In 7 days</option><option value="14">In 14 days</option><option value="30">In 30 days</option></select></div>
+              <div></div>
+            </div>
+            <label class="toggle"><input type="checkbox" name="send" checked /> Email it to the client (and their team) with a Pay button</label>
             <button class="btn btn-ink btn-full" type="submit">Create pending amount</button>
             <div class="adm-note" id="chDone" hidden></div>
           </form>
@@ -164,6 +183,7 @@
         <div class="field"><label>Client name</label><input name="client_name" /></div>
         <div class="field"><label>Client email</label><input name="client_email" type="email" /></div>
       </div>
+      <div class="field"><label>Other emails <span class="opt">(separate with commas)</span></label><input name="extra_emails" /></div>
       <div class="field"><label>Summary</label><textarea name="summary" style="min-height:64px"></textarea></div>
       <div class="field"><label>Target date</label><input name="due_date" type="date" /></div>
       <div class="adm-actions"><button class="btn btn-ink btn-sm" type="submit">Save changes</button><button class="adm-link danger" type="button" data-del>Delete project</button></div>
@@ -196,6 +216,25 @@
     const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok); } catch { toast(text); } };
     const isOverdue = (i) => i.balance && i.due_date && new Date(i.due_date) < new Date(new Date().toDateString());
     const dueText = (i) => !i.balance ? 'Paid' : i.due_date ? (isOverdue(i) ? `Overdue since ${fmtDate(i.due_date)}` : `Due ${fmtDate(i.due_date)}`) : 'Due on receipt';
+    const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const parseEmails = (v) => v.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+    const emailsOk = (input) => { const ok = parseEmails(input.value).every((x) => EMAIL.test(x)); input.closest('.field').classList.toggle('invalid', !ok); return ok; };
+    const num = (input) => Math.round(Number(input.value) || 0);
+    /* Shows the method row and a "balance" line when a deposit is entered. */
+    const depositHelper = (form, totalInput, hint) => {
+      const sync = () => {
+        const total = num(totalInput), dep = num(form.deposit);
+        $('[data-deposit]', form).hidden = !dep;
+        const note = $('[data-money-note]', form); if (note) note.hidden = !total;
+        hint.hidden = !total;
+        hint.innerHTML = !total ? '' : dep >= total ? '<span class="adm-red">The deposit must be less than the total.</span>'
+          : dep ? `An invoice is created for ${kes(total)} with ${kes(dep)} already paid, so <strong>${kes(total - dep)}</strong> stays pending.`
+          : `An invoice for ${kes(total)} is created and stays pending until paid.`;
+      };
+      [totalInput, form.deposit].forEach((i) => i.addEventListener('input', sync));
+      form.addEventListener('reset', () => setTimeout(sync));
+      return sync;
+    };
     let projects = [], invoices = [], view = 'overview';
     wakeApi();
     $('#today').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -272,7 +311,8 @@
     const projectCard = (p) => `
       <article class="adm-card status-${p.status}" data-code="${esc(p.code)}">
         <header>
-          <div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.client_name)} · ${esc(p.client_email)}</p></div>
+          <div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.client_name)} · ${[p.client_email, ...(p.extra_emails || [])].map(esc).join(', ')}</p>
+            ${p.invoiced ? `<p class="adm-small">${p.price ? `Price ${kes(p.price)} · ` : `Invoiced ${kes(p.invoiced)} · `}<span class="adm-green">paid ${kes(p.paid)}</span>${p.balance ? ` · <strong>${kes(p.balance)} pending</strong>` : ' · paid up'}</p>` : ''}</div>
           <div class="adm-card-meta"><span class="mono">${esc(p.code)}</span><strong>${p.progress}%</strong><span class="muted">${STAGES[p.stage] || p.stage}</span></div>
         </header>
         <span class="adm-bar"><i style="width:${p.progress}%"></i></span>
@@ -281,7 +321,7 @@
           <div class="adm-actions">
             <button type="button" class="adm-link" data-act="update">Post update</button>
             <button type="button" class="adm-link" data-act="edit">Edit</button>
-            <button type="button" class="adm-link" data-act="charge">Request payment</button>
+            <button type="button" class="adm-link" data-act="charge">${p.balance ? 'New invoice' : 'Request payment'}</button>
             <button type="button" class="adm-link" data-act="copy">Copy tracking link</button>
             <a class="adm-link" href="/track?code=${encodeURIComponent(p.code)}" target="_blank">View as client</a>
           </div>
@@ -335,12 +375,14 @@
     const editForm = (p) => {
       const f = $('#editTpl').content.firstElementChild.cloneNode(true);
       ['title', 'client_name', 'client_email', 'summary'].forEach((k) => f[k].value = p[k] || '');
+      f.extra_emails.value = (p.extra_emails || []).join(', ');
       f.due_date.value = p.due_date || '';
       f.addEventListener('submit', async (ev) => {
         ev.preventDefault();
+        if (!emailsOk(f.extra_emails)) return toast('Check the other emails');
         try {
           await patch(p.code, { title: f.title.value.trim(), client_name: f.client_name.value.trim(), client_email: f.client_email.value.trim(),
-            summary: f.summary.value.trim(), due_date: f.due_date.value || null });
+            extra_emails: parseEmails(f.extra_emails.value), summary: f.summary.value.trim(), due_date: f.due_date.value || null });
           toast('Saved'); loadProjects();
         } catch (err) { toast(err.message); }
       });
@@ -370,21 +412,34 @@
     });
 
     const np = $('#newProject');
+    depositHelper(np, np.price, $('#npMoney'));
     np.addEventListener('submit', async (e) => {
       e.preventDefault();
       let ok = true;
       ['title', 'client_name', 'client_email'].forEach((n) => { const bad = !np[n].value.trim() || (n === 'client_email' && !np[n].checkValidity()); np[n].closest('.field').classList.toggle('invalid', bad); ok = ok && !bad; });
-      if (!ok) return;
+      ok = emailsOk(np.extra_emails) && ok;
+      const price = num(np.price), deposit = num(np.deposit);
+      const badDep = deposit > 0 && (!price || deposit >= price);
+      np.deposit.closest('.field').classList.toggle('invalid', badDep);
+      if (badDep) toast(price ? 'The deposit must be less than the price' : 'Enter the agreed price too');
+      if (!ok || badDep) return;
+      const btn = np.querySelector('button[type=submit]'); btn.disabled = true;
       try {
         const p = await A('/api/admin/projects', { method: 'POST', body: {
           title: np.title.value.trim(), client_name: np.client_name.value.trim(), client_email: np.client_email.value.trim(),
-          summary: np.summary.value.trim(), due_date: np.due_date.value || null, quote_number: np.quote_number.value.trim() || null, notify: np.notify.checked } });
-        const mailed = np.notify.checked;
+          extra_emails: parseEmails(np.extra_emails.value), summary: np.summary.value.trim(), due_date: np.due_date.value || null,
+          quote_number: np.quote_number.value.trim() || null, price: price || null, deposit,
+          deposit_method: np.deposit_method.value, deposit_reference: np.deposit_reference.value.trim(), notify: np.notify.checked } });
+        const mailed = np.notify.checked, people = 1 + (p.extra_emails || []).length;
         np.reset(); np.notify.checked = true;
         $('#npDone').hidden = false;
-        $('#npDone').innerHTML = `Created <strong class="mono">${esc(p.code)}</strong>.${mailed ? ' The client has been emailed their code.' : ''}<br><span class="mono">${esc(trackLink(p.code))}</span>`;
+        $('#npDone').innerHTML = `Created <strong class="mono">${esc(p.code)}</strong>.`
+          + (p.invoiced ? ` ${kes(p.balance)} pending${p.paid ? ` after the ${kes(p.paid)} deposit` : ''}.` : '')
+          + (mailed ? ` Emailed ${people === 1 ? 'the client' : `${people} people`}.` : '')
+          + `<br><span class="mono">${esc(trackLink(p.code))}</span>`;
         pFilter = 'all'; loadProjects().then(renderProjects);
       } catch (err) { toast(err.message); }
+      finally { btn.disabled = false; }
     });
 
     /* ── Pending amounts ── */
@@ -403,15 +458,16 @@
       ch.project.dispatchEvent(new Event('change'));
       ch.desc.focus();
     };
+    const syncCharge = depositHelper(ch, ch.amount, $('#chMoney'));
     ch.project.addEventListener('change', () => {
       const p = projects.find((x) => x.code === ch.project.value);
       if (p) { ch.client_name.value = p.client_name; ch.client_email.value = p.client_email; }
     });
     ch.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const amount = Math.round(Number(ch.amount.value) || 0);
+      const amount = num(ch.amount), deposit = num(ch.deposit);
       let ok = true;
-      [['client_name', !!ch.client_name.value.trim()], ['desc', !!ch.desc.value.trim()], ['amount', amount >= 1],
+      [['client_name', !!ch.client_name.value.trim()], ['desc', !!ch.desc.value.trim()], ['amount', amount >= 1], ['deposit', deposit < amount || !deposit],
        ['client_email', !ch.client_email.value.trim() || ch.client_email.checkValidity()]]
         .forEach(([n, good]) => { ch[n].closest('.field').classList.toggle('invalid', !good); ok = ok && good; });
       if (!ok) return;
@@ -420,11 +476,12 @@
         const inv = await A('/api/admin/invoices', { method: 'POST', body: {
           project_code: ch.project.value || null, client_name: ch.client_name.value.trim(), client_email: ch.client_email.value.trim(),
           items: [{ desc: ch.desc.value.trim(), qty: 1, rate: amount }], due_days: Number(ch.due.value),
-          send_email: ch.send.checked && !!ch.client_email.value.trim(), notes: '' } });
-        const mailed = ch.send.checked && inv.client_email;
-        ch.desc.value = ''; ch.amount.value = '';
+          deposit, deposit_method: ch.deposit_method.value, deposit_reference: ch.deposit_reference.value.trim(),
+          send_email: ch.send.checked && !!(ch.client_email.value.trim() || ch.project.value), notes: '' } });
+        const mailed = ch.send.checked && (inv.client_email || ch.project.value);
+        ch.desc.value = ''; ch.amount.value = ''; ch.deposit.value = ''; ch.deposit_reference.value = ''; syncCharge();
         $('#chDone').hidden = false;
-        $('#chDone').innerHTML = `<strong class="mono">${esc(inv.number)}</strong>: ${kes(inv.total)} pending.${mailed ? ' Emailed to the client.' : ''}<br><button type="button" class="adm-link" data-copy="${esc(payLink(inv.number))}">Copy pay link</button>`;
+        $('#chDone').innerHTML = `<strong class="mono">${esc(inv.number)}</strong>: ${kes(inv.balance)} pending${inv.paid ? ` (${kes(inv.paid)} already received)` : ''}.${mailed ? ' Emailed to the client.' : ''}<br><button type="button" class="adm-link" data-copy="${esc(payLink(inv.number))}">Copy pay link</button>`;
         mFilter = 'due'; $$('#moneyFilter button').forEach((x) => x.classList.toggle('on', x.dataset.f === 'due'));
         loadMoney();
       } catch (err) { toast(err.message); }
@@ -441,7 +498,8 @@
         <div class="adm-lines">${i.lines.map((l) => `<div><span>${esc(l.desc)}</span><span>${kes(l.amount)}</span></div>`).join('')}
           <div class="adm-lines-total"><span>Total ${kes(i.total)}${i.paid ? ` · paid ${kes(i.paid)}` : ''}</span><span></span></div></div>
         <div class="adm-actions">
-          ${i.balance ? `<button type="button" class="adm-link" data-copy="${esc(payLink(i.number))}">Copy pay link</button>
+          ${i.balance ? `<button type="button" class="adm-link" data-act="send">${i.paid ? 'Email balance' : 'Email invoice'}</button>
+          <button type="button" class="adm-link" data-copy="${esc(payLink(i.number))}">Copy pay link</button>
           <button type="button" class="adm-link" data-act="record">Record a payment</button>` : ''}
           ${i.paid ? '' : '<button type="button" class="adm-link danger" data-act="delete">Delete</button>'}
         </div>
@@ -473,6 +531,13 @@
         if (!confirm(`Delete ${inv.number} (${kes(inv.total)} for ${inv.client_name})?`)) return;
         try { await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}`, { method: 'DELETE' }); toast('Deleted'); loadMoney(); }
         catch (err) { toast(err.message); }
+        return;
+      }
+      if (btn.dataset.act === 'send') {
+        btn.disabled = true;
+        try { const r = await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}/send`, { method: 'POST' }); toast(`Sent to ${r.to.join(', ')}`); }
+        catch (err) { toast(err.message); }
+        finally { btn.disabled = false; }
         return;
       }
       toggleSlot(card, 'record', () => {

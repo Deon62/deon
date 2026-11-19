@@ -12,7 +12,7 @@ If you've already done a step, skip it.
   It looks like `postgresql://postgres.<ref>:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`.
   - Use the Session pooler, not "Direct connection" (that one is IPv6-only and Render can't reach it).
   - If your database password has symbols like `@ # / ?`, URL-encode them (for example `@` becomes `%40`), or reset the password to letters and numbers.
-- [ ] In Render, open **deon-api > Environment**, set `DATABASE_URL` to that URI, and save. Render redeploys.
+- [x] In Render, open **deon-api > Environment**, set `DATABASE_URL` to that URI, and save. Render redeploys. Done.
 - [ ] Check it worked: in Supabase's **Table Editor** you should see `projects`, `invoices`, `payments`, `quotes`, `project_updates`, and the demo project `DO-DEMO01`.
 - [ ] Delete the old Render database `deon-db` (Render > deon-db > Settings > Delete). It only had test data.
 
@@ -21,11 +21,10 @@ If you've already done a step, skip it.
 - [ ] At https://resend.com go to **Domains > Add domain** and enter `deon.ardena.co.ke`.
 - [ ] Add the DNS records Resend shows (MX, SPF TXT, DKIM TXT) wherever the DNS for `ardena.co.ke` is managed. Wait for **Verified**.
 - [ ] Go to **API Keys > Create API key** with "Sending access" and copy it.
-- [ ] In Render (**deon-api > Environment**), set:
-  - `RESEND_API_KEY` = the key
+- [x] In Render (**deon-api > Environment**), set `RESEND_API_KEY`. Done. Also check:
   - `EMAIL_FROM` = `Deon Orina <hello@deon.ardena.co.ke>` (any address on the verified domain)
   - `NOTIFY_EMAIL` = where you want quote and payment alerts (default `ceo@ardena.co.ke`)
-- [ ] Check https://deon-api.onrender.com/health shows `"email":"on"`.
+- [ ] Check https://deon-api.onrender.com/health shows `"email":"on"` and `"database":"postgres"`.
 
 ## 3. Test the emails
 
@@ -67,7 +66,10 @@ If you've already done a step, skip it.
 
 1. **A quote request comes in.** The client gets a warm confirmation, and you get the brief by email and under **Quotes** in admin.
 2. **They accept.** In **Quotes**, press **Start a project from this**. The client is emailed a tracking code.
-3. **Ask for the deposit.** On the project, press **Request payment** (or use **Pending amounts**). The client gets an email with a Pay button. Entering the invoice number on `/pay` shows them the pending amount.
+   - **Several people on the client side?** Put the main contact in **Client email** and the rest in **Other emails**, separated by commas. Everyone gets the same emails (on one thread, so reply-all works) and each can open `/track` with their own address. Edit the list anytime under **Edit**.
+   - **Already got a deposit?** Fill in **Agreed price** and **Deposit received**. An invoice for the full price is created with the deposit recorded against it, so only the balance shows as pending. The welcome email shows the price, the deposit and the balance.
+3. **Ask for money.** On the project, press **Request payment** (or use **Pending amounts**). If part of it is already paid, fill **Already received** and only the rest stays pending. The client gets an email with a Pay button. Entering the invoice number on `/pay` shows them the pending amount.
+   - When it's time to collect the balance, press **Email balance** on the invoice. It sends the invoice as it stands now: total, paid so far, and what's left.
 4. **Paid in cash or by bank?** In **Pending amounts**, use **Record a payment** so the balance and receipts stay right.
 5. **Keep them posted.** Use **Post update** with the stage, a percentage and an optional staging link. Untick "Email the client" for small changes.
 6. **Change status anytime.** Use the **Status** dropdown (Active / On hold / Completed). Clients see it on `/track`.

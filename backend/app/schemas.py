@@ -50,6 +50,9 @@ class InvoiceItem(BaseModel):
     rate: int = Field(ge=0, le=100_000_000)
 
 
+PayMethod = Literal["Cash", "Bank transfer", "M-Pesa", "Other"]
+
+
 class InvoiceIn(BaseModel):
     number: str | None = Field(None, max_length=20)  # blank = next INV-YYYY-NNNN
     project_code: str | None = None
@@ -61,7 +64,12 @@ class InvoiceIn(BaseModel):
     vat: bool = False
     notes: str = Field("", max_length=2000)
     due_days: int = Field(7, ge=0, le=365)
-    send_email: bool = True  # email the invoice to client_email
+    # Money already received (e.g. a deposit paid before the invoice). Recorded as a payment,
+    # so the invoice opens with only the balance pending.
+    deposit: int = Field(0, ge=0, le=100_000_000)
+    deposit_method: PayMethod = "M-Pesa"
+    deposit_reference: str = Field("", max_length=32)
+    send_email: bool = True  # email the invoice to the client (and everyone on its project)
 
 
 class InvoicePublic(Out):
@@ -80,7 +88,7 @@ class ManualPaymentIn(BaseModel):
     """A payment made outside the site (cash, bank transfer, M-Pesa sent directly)."""
 
     amount: int = Field(ge=1, le=100_000_000)
-    method: Literal["Cash", "Bank transfer", "M-Pesa", "Other"] = "Bank transfer"
+    method: PayMethod = "Bank transfer"
     reference: str = Field("", max_length=32)
     send_receipt: bool = True
 
@@ -163,11 +171,18 @@ class ProjectIn(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     client_name: str = Field(min_length=1, max_length=120)
     client_email: EmailStr
+    extra_emails: list[EmailStr] = Field(default_factory=list, max_length=20)
     summary: str = Field("", max_length=3000)
     stage: Stage = "discovery"
     progress: int = Field(0, ge=0, le=100)
     due_date: date | None = None
     quote_number: str | None = None
+    # Agreed price. If set, an invoice for it is created, with any deposit already counted.
+    price: int | None = Field(None, ge=1, le=100_000_000)
+    deposit: int = Field(0, ge=0, le=100_000_000)
+    deposit_method: PayMethod = "M-Pesa"
+    deposit_reference: str = Field("", max_length=32)
+    balance_due_days: int | None = Field(None, ge=0, le=365)  # None = due on the target date
     notify: bool = True  # email the client their tracking code
 
 
@@ -175,6 +190,7 @@ class ProjectPatch(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=160)
     client_name: str | None = Field(None, min_length=1, max_length=120)
     client_email: EmailStr | None = None
+    extra_emails: list[EmailStr] | None = Field(None, max_length=20)
     summary: str | None = Field(None, max_length=3000)
     due_date: date | None = None
     status: Status | None = None
@@ -205,6 +221,11 @@ class ProjectOut(Out):
     title: str
     client_name: str
     client_email: str
+    extra_emails: list[str] | None = None
+    price: int | None = None
+    invoiced: int = 0
+    paid: int = 0
+    balance: int = 0
     summary: str
     stage: str
     status: str
