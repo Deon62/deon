@@ -26,31 +26,15 @@
     <form class="adm-gate-card form" id="gateForm" novalidate>
       <a href="/" class="nav-logo">deon<span>.</span></a>
       <h1>Admin</h1>
-      <p class="muted">Enter your admin key (ADMIN_KEY on Render). It's kept in this browser only.</p>
-      <div class="field"><label for="a-key">Admin key</label><input id="a-key" type="password" autocomplete="current-password" required /></div>
+      <p class="muted">Enter your admin key, or the access key Deon gave you. It's kept in this browser only.</p>
+      <div class="field"><label for="a-key">Key</label><input id="a-key" type="password" autocomplete="current-password" required /></div>
       <p class="field-hint" id="gateMsg" hidden style="color:var(--red)"></p>
       <button class="btn btn-ink btn-full" type="submit">Open dashboard</button>
     </form>
   </section>
 
   <div class="adm" id="app" hidden>
-    <aside class="adm-side">
-      <div class="adm-brand"><a href="/admin" class="nav-logo">deon<span>.</span></a><span>Admin</span></div>
-      <nav class="adm-nav" aria-label="Admin">
-        <button type="button" data-view="overview" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Overview</button>
-        <button type="button" data-view="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h12"/></svg>Projects<span class="adm-count" id="cProjects"></span></button>
-        <button type="button" data-view="money"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Pending amounts<span class="adm-count" id="cMoney"></span></button>
-        <button type="button" data-view="quotes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4z"/></svg>Quotes<span class="adm-count" id="cQuotes"></span></button>
-        <button type="button" data-view="payments"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Payments</button>
-      </nav>
-      <div class="adm-side-foot">
-        <span class="adm-pill" id="emailState"></span>
-        <button type="button" class="adm-link" id="testMail">Send test emails</button>
-        <a class="adm-link" href="/invoice">Detailed invoice builder</a>
-        <a class="adm-link" href="/" target="_blank">View site</a>
-        <button type="button" class="adm-link" id="lockBtn">Lock</button>
-      </div>
-    </aside>
+    <aside class="adm-side" id="admSide"></aside>
 
     <main class="adm-main">
       <header class="adm-head">
@@ -60,25 +44,41 @@
 
       <!-- OVERVIEW -->
       <section class="adm-view" data-pane="overview">
-        <div class="adm-stats">
-          <button type="button" class="adm-stat" data-go="money"><span>Pending</span><strong id="sPending">…</strong><em id="sPendingSub"></em></button>
-          <div class="adm-stat"><span>Collected this month</span><strong id="sMonth">…</strong><em id="sTotal"></em></div>
-          <button type="button" class="adm-stat" data-go="projects"><span>Active projects</span><strong id="sActive">…</strong><em id="sActiveSub"></em></button>
-          <button type="button" class="adm-stat" data-go="quotes"><span>New quote requests</span><strong id="sQuotes">…</strong><em>Waiting for a reply</em></button>
+        <div class="ov-top" data-need="money">
+          <div class="ov-hero">
+            <span class="ov-k">To collect</span>
+            <strong class="ov-big" id="sPending">…</strong>
+            <p id="sPendingSub"></p>
+            <div class="ov-split" id="sSplit" aria-hidden="true"></div>
+            <div class="ov-split-key" id="sSplitKey"></div>
+            <div class="ov-hero-actions"><button type="button" class="btn btn-sm ov-btn" data-go="money">See pending</button><button type="button" class="adm-link ov-link" data-go="reminders" data-need="reminders">Send reminders</button></div>
+          </div>
+          <div class="adm-box ov-chart-box">
+            <div class="ov-chart-head">
+              <div><span class="ov-k">Collected this month</span><strong class="ov-mid" id="sMonth">…</strong><em id="sDelta"></em></div>
+              <div class="ov-chart-total"><span class="ov-k">All time</span><strong id="sTotal">…</strong></div>
+            </div>
+            <div class="ov-chart" id="chart" role="img" aria-label="Money collected in each of the last six months"></div>
+          </div>
         </div>
+
+        <div class="adm-stats" id="statRow"></div>
+
+        <div class="adm-box ov-pipe" data-need="projects">
+          <div class="adm-box-head"><h2>Pipeline</h2><button type="button" class="adm-link" data-go="projects">All projects</button></div>
+          <div class="ov-stages" id="oStages"></div>
+          <div id="oProjects" class="adm-wip"></div>
+        </div>
+
         <div class="adm-cols">
-          <div class="adm-box">
+          <div class="adm-box" data-need="money">
             <div class="adm-box-head"><h2>Pending amounts</h2><button type="button" class="adm-link" data-go="money">All</button></div>
             <div id="oPending"></div>
           </div>
           <div class="adm-box">
-            <div class="adm-box-head"><h2>Recent payments</h2><button type="button" class="adm-link" data-go="payments">All</button></div>
-            <div id="oPayments"></div>
+            <div class="adm-box-head"><h2>Activity</h2></div>
+            <ol class="ov-feed" id="oFeed"></ol>
           </div>
-        </div>
-        <div class="adm-box">
-          <div class="adm-box-head"><h2>Work in progress</h2><button type="button" class="adm-link" data-go="projects">All projects</button></div>
-          <div id="oProjects" class="adm-wip"></div>
         </div>
       </section>
 
@@ -112,7 +112,7 @@
             <div class="adm-note" id="npDone" hidden></div>
           </form>
           <div>
-            <div class="adm-filter" id="projectFilter"><button type="button" data-f="all" class="on">All</button><button type="button" data-f="active">Active</button><button type="button" data-f="paused">On hold</button><button type="button" data-f="completed">Completed</button></div>
+            <div class="adm-toolbar"><div id="projectFilter"></div><input type="search" class="adm-search" id="projectSearch" placeholder="Search projects" aria-label="Search projects" /></div>
             <div id="projectList" class="adm-list"></div>
           </div>
         </div>
@@ -122,7 +122,7 @@
       <section class="adm-view" data-pane="money" hidden>
         <div class="adm-split">
           <form class="adm-box form" id="newCharge" novalidate>
-            <div class="adm-box-head"><h2>Request a payment</h2></div>
+            <div class="adm-box-head"><h2>Request a payment</h2><a class="adm-link" href="/invoice">Detailed invoice</a></div>
             <p class="muted adm-small">Creates an invoice number. When the client enters it on the Pay page, they see this pending amount and can pay it with M-Pesa.</p>
             <div class="field"><label for="ch-project">Project <span class="opt">(optional)</span></label><select id="ch-project" name="project"><option value="">No project</option></select></div>
             <div class="form-row">
@@ -148,17 +148,69 @@
             <div class="adm-note" id="chDone" hidden></div>
           </form>
           <div>
-            <div class="adm-filter" id="moneyFilter"><button type="button" data-f="due" class="on">Pending</button><button type="button" data-f="paid">Paid</button><button type="button" data-f="all">All</button></div>
+            <div class="adm-toolbar"><div id="moneyFilter"></div><input type="search" class="adm-search" id="moneySearch" placeholder="Search client or invoice" aria-label="Search invoices" /></div>
             <div id="moneyList" class="adm-list"></div>
           </div>
         </div>
       </section>
 
+      <!-- REMINDERS -->
+      <section class="adm-view" data-pane="reminders" hidden>
+        <div class="adm-box">
+          <div class="adm-box-head"><h2>Payment reminders</h2><div class="adm-toolbar tight"><div id="remFilter"></div></div></div>
+          <p class="muted adm-small">Each client gets a friendly email with what's left to pay and a Pay button. Their team is copied in.</p>
+          <div id="remList" class="rem-list"></div>
+          <div class="rem-send" id="remSend" hidden>
+            <div class="field"><label for="rem-note">Add a note <span class="opt">(optional, goes in every email)</span></label><textarea id="rem-note" style="min-height:64px" placeholder="Just checking in before the launch on Friday."></textarea></div>
+            <div class="rem-send-row"><span class="muted" id="remPicked"></span><button type="button" class="btn btn-ink btn-sm" id="remGo">Send reminders</button></div>
+          </div>
+        </div>
+        <div class="adm-split" style="margin-top:20px">
+          <form class="adm-box form" id="msgForm" novalidate>
+            <div class="adm-box-head"><h2>Message clients</h2></div>
+            <p class="muted adm-small">Ask for content, confirm a meeting, or share news. Goes to everyone on each project you pick.</p>
+            <div class="field"><label>Projects</label><div class="rem-projects" id="msgProjects"></div></div>
+            <div class="field"><label for="msg-subject">Subject</label><input id="msg-subject" name="subject" placeholder="Logo files for the homepage" /></div>
+            <div class="field"><label for="msg-body">Message</label><textarea id="msg-body" name="message" placeholder="Could you send the logo in high resolution by Thursday?"></textarea></div>
+            <button class="btn btn-ink btn-full" type="submit">Send message</button>
+          </form>
+          <div class="adm-box">
+            <div class="adm-box-head"><h2>Sent</h2></div>
+            <div id="remHistory"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- QUOTES -->
-      <section class="adm-view" data-pane="quotes" hidden><div id="quoteList" class="adm-list"></div></section>
+      <section class="adm-view" data-pane="quotes" hidden>
+        <div class="adm-toolbar"><div id="quoteFilter"></div></div>
+        <div id="quoteList" class="adm-list"></div>
+      </section>
 
       <!-- PAYMENTS -->
-      <section class="adm-view" data-pane="payments" hidden><div class="adm-box"><div id="paymentList" class="adm-table"></div></div></section>
+      <section class="adm-view" data-pane="payments" hidden>
+        <div class="adm-toolbar"><div id="payFilter"></div></div>
+        <div class="adm-box"><div id="paymentList" class="adm-table"></div></div>
+      </section>
+
+      <!-- TEAM -->
+      <section class="adm-view" data-pane="team" hidden>
+        <div class="adm-split">
+          <form class="adm-box form" id="teamForm" novalidate>
+            <div class="adm-box-head"><h2>Add someone</h2></div>
+            <p class="muted adm-small">For a PA or anyone helping out. They sign in with their own key and only see what you tick. Only you can manage the team.</p>
+            <div class="form-row">
+              <div class="field"><label for="tm-name">Name</label><input id="tm-name" name="name" placeholder="Wanjiru" /></div>
+              <div class="field"><label for="tm-email">Email <span class="opt">(optional)</span></label><input id="tm-email" name="email" type="email" /></div>
+            </div>
+            <div class="field"><label>They can work on</label><div class="tm-access" id="tmAccess"></div></div>
+            <label class="toggle"><input type="checkbox" name="send_email" /> Email them their key</label>
+            <button class="btn btn-ink btn-full" type="submit">Add to team</button>
+            <div class="adm-note" id="tmDone" hidden></div>
+          </form>
+          <div id="teamList" class="adm-list"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -186,7 +238,7 @@
       <div class="field"><label>Other emails <span class="opt">(separate with commas)</span></label><input name="extra_emails" /></div>
       <div class="field"><label>Summary</label><textarea name="summary" style="min-height:64px"></textarea></div>
       <div class="field"><label>Target date</label><input name="due_date" type="date" /></div>
-      <div class="adm-actions"><button class="btn btn-ink btn-sm" type="submit">Save changes</button><button class="adm-link danger" type="button" data-del>Delete project</button></div>
+      <div><button class="btn btn-ink btn-sm" type="submit">Save changes</button></div>
     </form>
   </template>
 
@@ -203,23 +255,33 @@
   </template>
 
   <script src="/script.js"></script>
+  <script src="/admin-ui.js"></script>
   <script>
   (() => {
     const STAGES = { discovery: 'Discovery', design: 'Design', build: 'Build', testing: 'Testing', launch: 'Launch', done: 'Complete' };
     const STATUS = { active: 'Active', paused: 'On hold', completed: 'Completed' };
     const TIMELINE = { flexible: 'Flexible', standard: 'Standard', rush: 'Urgent' };
+    const DEMO = 'DO-DEMO01';
     const A = (path, opts = {}) => api(path, { ...opts, admin: true });
-    const setKey = (k) => k ? localStorage.setItem('deon.adminKey', k) : localStorage.removeItem('deon.adminKey');
     const trackLink = (code) => `${location.origin}/track?code=${encodeURIComponent(code)}`;
     const payLink = (n) => `${location.origin}/pay?inv=${encodeURIComponent(n)}`;
     const empty = (what) => `<p class="muted adm-empty">${what}</p>`;
     const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok); } catch { toast(text); } };
     const isOverdue = (i) => i.balance && i.due_date && new Date(i.due_date) < new Date(new Date().toDateString());
     const dueText = (i) => !i.balance ? 'Paid' : i.due_date ? (isOverdue(i) ? `Overdue since ${fmtDate(i.due_date)}` : `Due ${fmtDate(i.due_date)}`) : 'Due on receipt';
+    const ago = (d) => {
+      const s = (Date.now() - new Date(d)) / 1000;
+      if (s < 90) return 'just now';
+      if (s < 3600) return `${Math.round(s / 60)} min ago`;
+      if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+      if (s < 86400 * 7) { const n = Math.round(s / 86400); return n === 1 ? 'yesterday' : `${n} days ago`; }
+      return fmtDate(d);
+    };
     const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const parseEmails = (v) => v.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
     const emailsOk = (input) => { const ok = parseEmails(input.value).every((x) => EMAIL.test(x)); input.closest('.field').classList.toggle('invalid', !ok); return ok; };
     const num = (input) => Math.round(Number(input.value) || 0);
+    const match = (q, ...fields) => !q || fields.some((f) => String(f || '').toLowerCase().includes(q));
     /* Shows the method row and a "balance" line when a deposit is entered. */
     const depositHelper = (form, totalInput, hint) => {
       const sync = () => {
@@ -236,40 +298,24 @@
       return sync;
     };
     let projects = [], invoices = [], view = 'overview';
-    wakeApi();
+    const hour = new Date().getHours();
     $('#today').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
-    /* ── Gate ── */
-    const open = async () => {
-      let info;
-      try { info = await A('/api/admin/check'); }
-      catch (e) {
-        $('#gate').hidden = false; $('#app').hidden = true;
-        if (localStorage.getItem('deon.adminKey')) { $('#gateMsg').textContent = e.status === 401 ? 'Wrong admin key.' : e.message; $('#gateMsg').hidden = false; }
-        return;
-      }
-      $('#gate').hidden = true; $('#app').hidden = false;
-      $('#emailState').textContent = info.email ? 'Email on' : 'Email off';
-      $('#emailState').classList.toggle('off', !info.email);
-      go(location.hash.slice(1) || 'overview');
-    };
-    $('#gateForm').addEventListener('submit', (e) => { e.preventDefault(); setKey($('#a-key').value.trim()); open(); });
-    $('#lockBtn').addEventListener('click', () => { setKey(''); location.reload(); });
-
     /* ── Views ── */
-    const TITLES = { overview: 'Overview', projects: 'Projects', money: 'Pending amounts', quotes: 'Quote requests', payments: 'Payments' };
-    const loaders = { overview: () => loadOverview(), projects: () => loadProjects(), money: () => loadMoney(), quotes: () => loadQuotes(), payments: () => loadPayments() };
+    const TITLES = { overview: 'Overview', projects: 'Projects', money: 'Pending amounts', reminders: 'Reminders', quotes: 'Quote requests', payments: 'Payments', team: 'Team' };
+    const NEED = { overview: null, projects: 'projects', money: 'money', reminders: 'reminders', quotes: 'quotes', payments: 'payments', team: 'owner' };
+    const loaders = { overview: () => loadOverview(), projects: () => loadProjects(), money: () => loadMoney(), reminders: () => loadReminders(), quotes: () => loadQuotes(), payments: () => loadPayments(), team: () => loadTeam() };
     const go = (v) => {
-      if (!TITLES[v]) v = 'overview';
+      if (!TITLES[v] || !Admin.can(NEED[v])) v = 'overview';
       view = v;
       history.replaceState(null, '', '#' + v);
-      $('#viewTitle').textContent = TITLES[v];
-      $$('.adm-nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+      $('#viewTitle').textContent = v === 'overview' ? `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${Admin.info.name.split(' ')[0]}` : TITLES[v];
+      Admin.mark(v);
       $$('.adm-view').forEach((s) => s.hidden = s.dataset.pane !== v);
       loaders[v]();
       scrollTo(0, 0);
     };
-    $$('.adm-nav button').forEach((b) => b.addEventListener('click', () => go(b.dataset.view)));
+    addEventListener('hashchange', () => go(location.hash.slice(1)));
     document.addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
     $('#refresh').addEventListener('click', () => loaders[view]());
 
@@ -279,59 +325,119 @@
         <div><strong>${esc(i.client_name)}</strong><span class="muted mono">${esc(i.number)}</span></div>
         <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
       </div>`;
+    const short = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n);
+    const drawChart = (series) => {
+      const el = $('#chart');
+      const max = Math.max(...series.map((s) => s.amount), 1);
+      const step = Math.pow(10, Math.floor(Math.log10(max)));
+      const top = Math.ceil(max / step) * step;
+      const ticks = [0, top / 2, top];
+      const lbl = (m) => new Date(m + '-01').toLocaleDateString('en-GB', { month: 'short' });
+      el.innerHTML = `
+        <div class="ov-grid">${ticks.slice().reverse().map((t) => `<div><span>${short(t)}</span></div>`).join('')}</div>
+        <div class="ov-bars">${series.map((s, i) => `
+          <div class="ov-col${i === series.length - 1 ? ' now' : ''}" tabindex="0" data-tip="${esc(new Date(s.month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }))}: ${kes(s.amount)}">
+            <i style="height:${(s.amount / top) * 100}%"></i><span>${lbl(s.month)}</span>
+          </div>`).join('')}</div>
+        <div class="ov-tip" role="status" hidden></div>`;
+      const tip = $('.ov-tip', el);
+      const show = (col) => { tip.textContent = col.dataset.tip; tip.hidden = false; const r = col.getBoundingClientRect(), p = el.getBoundingClientRect(); tip.style.left = (r.left - p.left + r.width / 2) + 'px'; };
+      $$('.ov-col', el).forEach((c) => { c.addEventListener('mouseenter', () => show(c)); c.addEventListener('focus', () => show(c)); c.addEventListener('mouseleave', () => tip.hidden = true); c.addEventListener('blur', () => tip.hidden = true); });
+    };
+    const FEED_ICON = { payment: ICON.payments, update: ICON.projects, quote: ICON.quotes, reminder: ICON.reminders };
+    const stat = (label, value, sub, to) => { const goTo = to && Admin.can(NEED[to]) ? to : ''; return `<${goTo ? `button type="button" data-go="${goTo}"` : 'div'} class="adm-stat"><span>${label}</span><strong>${value}</strong><em>${sub}</em></${goTo ? 'button' : 'div'}>`; };
     const loadOverview = async () => {
       let o;
       try { o = await A('/api/admin/overview'); } catch (e) { return toast(e.message); }
-      $('#sPending').textContent = kes(o.outstanding_total);
-      $('#sPendingSub').textContent = `${o.outstanding_count} invoice${o.outstanding_count === 1 ? '' : 's'}${o.overdue_count ? ` · ${o.overdue_count} overdue` : ''}`;
-      $('#sMonth').textContent = kes(o.collected_month);
-      $('#sTotal').textContent = `${kes(o.collected_total)} all time`;
-      $('#sActive').textContent = o.projects.active;
-      $('#sActiveSub').textContent = `${o.projects.paused} on hold · ${o.projects.completed} completed`;
-      $('#sQuotes').textContent = o.quotes_new;
-      $('#cProjects').textContent = o.projects.active || '';
-      $('#cMoney').textContent = o.outstanding_count || '';
-      $('#cQuotes').textContent = o.quotes_new || '';
-      $('#oPending').innerHTML = o.outstanding.length ? o.outstanding.map(invoiceRow).join('') : empty('Nothing pending. Everyone is paid up.');
-      $('#oPayments').innerHTML = o.recent_payments.length ? o.recent_payments.map((p) => `
-        <div class="adm-row-item">
-          <div><strong>${esc(p.name)}</strong><span class="muted">${esc(p.description)}</span></div>
-          <div class="adm-right"><strong class="adm-green">+${kes(p.amount)}</strong><span class="muted">${fmtDate(p.paid_at || p.created_at)} · ${esc(p.method)}</span></div>
-        </div>`).join('') : empty('No payments yet.');
-      $('#oProjects').innerHTML = o.projects_recent.length ? o.projects_recent.map((p) => `
-        <button type="button" class="adm-wip-item" data-go="projects">
-          <span class="adm-wip-top"><strong>${esc(p.title)}</strong><span class="mono">${p.progress}%</span></span>
-          <span class="adm-bar"><i style="width:${p.progress}%"></i></span>
-          <span class="muted">${esc(p.client_name)} · ${STAGES[p.stage]}${p.status === 'paused' ? ' · <span class="adm-amber">On hold</span>' : ''}</span>
-        </button>`).join('') : empty('No active projects.');
+      $$('[data-pane=overview] [data-need]').forEach((el) => el.hidden = !Admin.can(el.dataset.need));
+      if ('outstanding_total' in o) {
+        $('#sPending').textContent = kes(o.outstanding_total);
+        $('#sPendingSub').innerHTML = o.outstanding_count
+          ? `${o.outstanding_count} invoice${o.outstanding_count === 1 ? '' : 's'} open${o.overdue_count ? ` · <span class="ov-hot">${o.overdue_count} overdue</span>` : ''}`
+          : 'Everyone is paid up.';
+        const late = o.overdue_total, onTime = o.outstanding_total - late, tot = o.outstanding_total || 1;
+        $('#sSplit').innerHTML = o.outstanding_total ? `<i class="late" style="width:${late / tot * 100}%"></i><i style="width:${onTime / tot * 100}%"></i>` : '';
+        $('#sSplitKey').innerHTML = o.outstanding_total ? `<span><b class="late"></b>Overdue ${kes(late)}</span><span><b></b>Not yet due ${kes(onTime)}</span>` : '';
+        $('#sMonth').textContent = kes(o.collected_month);
+        const prev = o.collected_last_month;
+        $('#sDelta').textContent = prev ? `${o.collected_month >= prev ? '+' : '−'}${Math.abs(Math.round((o.collected_month - prev) / prev * 100))}% vs last month` : o.collected_month ? 'First money in a while' : 'Nothing yet this month';
+        $('#sDelta').className = prev && o.collected_month < prev ? 'down' : '';
+        $('#sTotal').textContent = kes(o.collected_total);
+        drawChart(o.monthly);
+        $('#oPending').innerHTML = o.outstanding.length ? o.outstanding.map(invoiceRow).join('') : empty('Nothing pending. Everyone is paid up.');
+        Admin.count('money', o.outstanding_count);
+      }
+      const tiles = [];
+      if (o.projects) tiles.push(stat('Active projects', o.projects.active, `${o.projects.paused} on hold · ${o.projects.completed} done`, 'projects'));
+      if (o.projects_recent) {
+        const soon = o.projects_recent.filter((p) => p.due_date && (new Date(p.due_date) - Date.now()) / 864e5 <= 14).length;
+        tiles.push(stat('Due in 2 weeks', soon, soon ? 'Projects with a target date close' : 'Nothing due soon', 'projects'));
+      }
+      if ('quotes_new' in o) tiles.push(stat('New quote requests', o.quotes_new, o.quotes_new ? 'Waiting for a reply' : 'All answered', 'quotes'));
+      if ('outstanding_total' in o) tiles.push(stat('Average invoice open', o.outstanding_count ? kes(o.outstanding_total / o.outstanding_count) : 'KES 0', 'Per pending invoice', 'money'));
+      $('#statRow').innerHTML = tiles.join('');
+      $('#statRow').hidden = !tiles.length;
+      if (o.projects) {
+        Admin.count('projects', o.projects.active);
+        const n = Object.values(o.stages).reduce((a, b) => a + b, 0) || 1;
+        $('#oStages').innerHTML = Object.entries(o.stages).map(([k, c]) => `<div class="${c ? '' : 'none'}"><strong>${c}</strong><span>${STAGES[k]}</span><i style="width:${c / n * 100}%"></i></div>`).join('');
+        $('#oProjects').innerHTML = o.projects_recent.length ? o.projects_recent.map((p) => `
+          <button type="button" class="adm-wip-item" data-go="projects">
+            <span class="adm-wip-top"><strong>${esc(p.title)}</strong><span class="mono">${p.progress}%</span></span>
+            <span class="adm-bar"><i style="width:${p.progress}%"></i></span>
+            <span class="muted">${esc(p.client_name)} · ${STAGES[p.stage]}${p.status === 'paused' ? ' · <span class="adm-amber">On hold</span>' : ''}${p.due_date ? ` · due ${fmtDate(p.due_date)}` : ''}</span>
+          </button>`).join('') : empty('No active projects.');
+      }
+      if ('quotes_new' in o) Admin.count('quotes', o.quotes_new);
+      $('#oFeed').innerHTML = o.activity.length ? o.activity.map((f) => `
+        <li class="k-${f.kind}"><span class="ov-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${FEED_ICON[f.kind]}</svg></span>
+          <div><strong>${esc(f.title)}</strong><span class="muted">${esc(f.detail)}</span></div>
+          <div class="adm-right">${f.amount ? `<strong class="adm-green">+${kes(f.amount)}</strong>` : ''}<span class="muted">${ago(f.at)}</span></div></li>`).join('') : `<li class="ov-none">${empty('Nothing has happened yet.')}</li>`;
     };
 
     /* ── Projects ── */
-    let pFilter = 'all';
-    const projectCard = (p) => `
-      <article class="adm-card status-${p.status}" data-code="${esc(p.code)}">
+    let pFilter = 'all', pQuery = '';
+    const projectCard = (p) => {
+      const demo = p.code === DEMO;
+      return `
+      <article class="adm-card status-${p.status}${demo ? ' is-demo' : ''}" data-code="${esc(p.code)}">
         <header>
-          <div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.client_name)} · ${[p.client_email, ...(p.extra_emails || [])].map(esc).join(', ')}</p>
-            ${p.invoiced ? `<p class="adm-small">${p.price ? `Price ${kes(p.price)} · ` : `Invoiced ${kes(p.invoiced)} · `}<span class="adm-green">paid ${kes(p.paid)}</span>${p.balance ? ` · <strong>${kes(p.balance)} pending</strong>` : ' · paid up'}</p>` : ''}</div>
+          <div><h3>${esc(p.title)}${demo ? ' <span class="adm-tag">Sample</span>' : ''}</h3><p class="muted">${esc(p.client_name)} · ${[p.client_email, ...(p.extra_emails || [])].map(esc).join(', ')}</p>
+            ${p.invoiced ? `<p class="adm-small">${p.price ? `Price ${kes(p.price)} · ` : `Invoiced ${kes(p.invoiced)} · `}<span class="adm-green">paid ${kes(p.paid)}</span>${p.balance ? ` · <strong>${kes(p.balance)} pending</strong>` : ' · paid up'}</p>` : ''}
+            ${demo ? '<p class="adm-small muted">Anyone can open this on /track with the demo email. Reset it to bring back the full update history with fresh dates.</p>' : ''}</div>
           <div class="adm-card-meta"><span class="mono">${esc(p.code)}</span><strong>${p.progress}%</strong><span class="muted">${STAGES[p.stage] || p.stage}</span></div>
         </header>
         <span class="adm-bar"><i style="width:${p.progress}%"></i></span>
         <div class="adm-row">
-          <label class="adm-status">Status <select data-status>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === p.status ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+          <div class="adm-status">${demo ? '' : '<span>Status</span><div data-status></div>'}</div>
           <div class="adm-actions">
             <button type="button" class="adm-link" data-act="update">Post update</button>
-            <button type="button" class="adm-link" data-act="edit">Edit</button>
-            <button type="button" class="adm-link" data-act="charge">${p.balance ? 'New invoice' : 'Request payment'}</button>
+            ${demo ? '' : `<button type="button" class="adm-link" data-act="edit">Edit</button>
+            ${Admin.can('money') ? `<button type="button" class="adm-link" data-act="charge">${p.balance ? 'New invoice' : 'Request payment'}</button>` : ''}`}
             <button type="button" class="adm-link" data-act="copy">Copy tracking link</button>
-            <a class="adm-link" href="/track?code=${encodeURIComponent(p.code)}" target="_blank">View as client</a>
+            <a class="adm-link" href="/track?code=${encodeURIComponent(p.code)}${demo ? '&demo=1' : ''}" target="_blank">View as client</a>
+            ${demo ? '<button type="button" class="adm-link" data-act="reset">Reset sample</button>' : '<button type="button" class="adm-link danger" data-act="delete">Delete</button>'}
           </div>
         </div>
         <div class="adm-slot"></div>
         ${p.updates.length ? `<ol class="adm-updates">${p.updates.slice(0, 4).map((u) => `<li><span class="muted">${fmtDate(u.created_at)}</span>${esc(u.title)}<span class="mono muted">${u.progress}%</span></li>`).join('')}</ol>` : ''}
       </article>`;
+    };
+    const projectFilter = dropdown($('#projectFilter'), { label: 'Status', value: 'all', options: [{ value: 'all', label: 'All' }], onChange: (v) => { pFilter = v; renderProjects(); } });
     const renderProjects = () => {
-      const list = projects.filter((p) => pFilter === 'all' || p.status === pFilter);
-      $('#projectList').innerHTML = list.length ? list.map(projectCard).join('') : empty(pFilter === 'all' ? 'No projects yet. Create the first one on the left.' : `No ${STATUS[pFilter].toLowerCase()} projects.`);
+      const real = projects.filter((p) => p.code !== DEMO);
+      projectFilter.update([{ value: 'all', label: 'All', count: real.length }, ...Object.entries(STATUS).map(([k, v]) => ({ value: k, label: v, count: real.filter((p) => p.status === k).length }))]);
+      const list = projects.filter((p) => (pFilter === 'all' || p.status === pFilter) && match(pQuery, p.title, p.client_name, p.code, p.client_email));
+      // The sample goes last so real work stays on top.
+      list.sort((a, b) => (a.code === DEMO) - (b.code === DEMO));
+      $('#projectList').innerHTML = list.length ? list.map(projectCard).join('') : empty(pQuery ? 'No projects match that search.' : pFilter === 'all' ? 'No projects yet. Create the first one on the left.' : `No ${STATUS[pFilter].toLowerCase()} projects.`);
+      $$('#projectList [data-status]').forEach((el) => {
+        const code = el.closest('.adm-card').dataset.code, p = projects.find((x) => x.code === code);
+        dropdown(el, { label: '', value: p.status, options: Object.entries(STATUS).map(([k, v]) => ({ value: k, label: v })), onChange: async (v) => {
+          try { await patch(code, { status: v }); toast(`Marked ${STATUS[v].toLowerCase()}`); loadProjects(); }
+          catch (err) { toast(err.message); }
+        } });
+      });
     };
     const loadProjects = async () => {
       projects = await A('/api/admin/projects').catch((e) => (toast(e.message), []));
@@ -339,19 +445,8 @@
       fillProjectSelect();
       return projects;
     };
-    $('#projectFilter').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-f]'); if (!b) return;
-      pFilter = b.dataset.f;
-      $$('#projectFilter button').forEach((x) => x.classList.toggle('on', x === b));
-      renderProjects();
-    });
+    $('#projectSearch').addEventListener('input', (e) => { pQuery = e.target.value.trim().toLowerCase(); renderProjects(); });
     const patch = (code, body) => A(`/api/admin/projects/${encodeURIComponent(code)}`, { method: 'PATCH', body });
-    $('#projectList').addEventListener('change', async (e) => {
-      if (!e.target.matches('[data-status]')) return;
-      const code = e.target.closest('.adm-card').dataset.code;
-      try { await patch(code, { status: e.target.value }); toast(`Marked ${STATUS[e.target.value].toLowerCase()}`); loadProjects(); }
-      catch (err) { toast(err.message); }
-    });
 
     const updateForm = (p) => {
       const f = $('#updateTpl').content.firstElementChild.cloneNode(true);
@@ -360,6 +455,7 @@
       const sync = () => f.pctOut.value = f.progress.value + '%';
       f.progress.addEventListener('input', sync); sync();
       f.stage.addEventListener('change', () => { if (f.stage.value === 'done') { f.progress.value = 100; sync(); } });
+      if (p.code === DEMO) f.notify.checked = false;
       f.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         if (!f.title.value.trim()) return f.title.closest('.field').classList.add('invalid');
@@ -386,11 +482,6 @@
           toast('Saved'); loadProjects();
         } catch (err) { toast(err.message); }
       });
-      $('[data-del]', f).addEventListener('click', async () => {
-        if (!confirm(`Delete "${p.title}" and all its updates? This can't be undone.`)) return;
-        try { await A(`/api/admin/projects/${encodeURIComponent(p.code)}`, { method: 'DELETE' }); toast('Deleted'); loadProjects(); }
-        catch (err) { toast(err.message); }
-      });
       return f;
     };
     const toggleSlot = (card, key, make) => {
@@ -402,13 +493,28 @@
       const f = make(); slot.append(f);
       f.querySelector('input:not([type=checkbox])')?.focus();
     };
-    $('#projectList').addEventListener('click', (e) => {
+    $('#projectList').addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
       const card = btn.closest('.adm-card'), p = projects.find((x) => x.code === card.dataset.code);
-      if (btn.dataset.act === 'copy') return copy(`Track your project at ${trackLink(p.code)} using code ${p.code} and your email.`, 'Tracking message copied');
-      if (btn.dataset.act === 'charge') { go('money'); prefillCharge(p.code); return; }
-      toggleSlot(card, btn.dataset.act, () => btn.dataset.act === 'edit' ? editForm(p) : updateForm(p));
+      const act = btn.dataset.act;
+      if (act === 'copy') return copy(`Track your project at ${trackLink(p.code)} using code ${p.code} and your email.`, 'Tracking message copied');
+      if (act === 'charge') { go('money'); prefillCharge(p.code); return; }
+      if (act === 'delete') {
+        const money = p.invoiced ? ` Its invoices (${kes(p.invoiced)}, ${kes(p.paid)} paid) and receipts are kept, just no longer linked to it.` : '';
+        if (!await confirmUI({ title: `Delete ${p.title}?`, text: `The project, its ${p.updates.length} update${p.updates.length === 1 ? '' : 's'} and its tracking page are removed. The client can no longer open it.${esc(money)} This can't be undone.`, ok: 'Delete project', danger: true })) return;
+        card.classList.add('leaving');
+        try { await A(`/api/admin/projects/${encodeURIComponent(p.code)}`, { method: 'DELETE' }); toast('Project deleted'); loadProjects(); }
+        catch (err) { card.classList.remove('leaving'); toast(err.message); }
+        return;
+      }
+      if (act === 'reset') {
+        if (!await confirmUI({ title: 'Reset the sample project?', text: 'It goes back to its four example updates with fresh dates. Anything you posted on it is removed.', ok: 'Reset sample' })) return;
+        try { await A('/api/admin/demo/reset', { method: 'POST' }); toast('Sample project reset'); loadProjects(); }
+        catch (err) { toast(err.message); }
+        return;
+      }
+      toggleSlot(card, act, () => act === 'edit' ? editForm(p) : updateForm(p));
     });
 
     const np = $('#newProject');
@@ -437,17 +543,17 @@
           + (p.invoiced ? ` ${kes(p.balance)} pending${p.paid ? ` after the ${kes(p.paid)} deposit` : ''}.` : '')
           + (mailed ? ` Emailed ${people === 1 ? 'the client' : `${people} people`}.` : '')
           + `<br><span class="mono">${esc(trackLink(p.code))}</span>`;
-        pFilter = 'all'; loadProjects().then(renderProjects);
+        pFilter = 'all'; projectFilter.set('all'); loadProjects().then(renderProjects);
       } catch (err) { toast(err.message); }
       finally { btn.disabled = false; }
     });
 
     /* ── Pending amounts ── */
-    let mFilter = 'due';
+    let mFilter = 'due', mQuery = '';
     const ch = $('#newCharge');
     const fillProjectSelect = () => {
       const cur = ch.project.value;
-      ch.project.innerHTML = '<option value="">No project</option>' + projects.filter((p) => p.status !== 'completed' || p.code === cur)
+      ch.project.innerHTML = '<option value="">No project</option>' + projects.filter((p) => p.code !== DEMO && (p.status !== 'completed' || p.code === cur))
         .map((p) => `<option value="${esc(p.code)}">${esc(p.title)} · ${esc(p.client_name)}</option>`).join('');
       ch.project.value = cur;
     };
@@ -482,7 +588,7 @@
         ch.desc.value = ''; ch.amount.value = ''; ch.deposit.value = ''; ch.deposit_reference.value = ''; syncCharge();
         $('#chDone').hidden = false;
         $('#chDone').innerHTML = `<strong class="mono">${esc(inv.number)}</strong>: ${kes(inv.balance)} pending${inv.paid ? ` (${kes(inv.paid)} already received)` : ''}.${mailed ? ' Emailed to the client.' : ''}<br><button type="button" class="adm-link" data-copy="${esc(payLink(inv.number))}">Copy pay link</button>`;
-        mFilter = 'due'; $$('#moneyFilter button').forEach((x) => x.classList.toggle('on', x.dataset.f === 'due'));
+        mFilter = 'due'; moneyFilter.set('due');
         loadMoney();
       } catch (err) { toast(err.message); }
       finally { btn.disabled = false; }
@@ -492,47 +598,61 @@
       <article class="adm-card ${i.balance ? (isOverdue(i) ? 'status-overdue' : '') : 'status-completed'}" data-number="${esc(i.number)}">
         <header>
           <div><h3>${esc(i.client_name)}${i.client_company ? ` <span class="muted">· ${esc(i.client_company)}</span>` : ''}</h3>
-            <p class="muted"><span class="mono">${esc(i.number)}</span>${i.project_code ? ` · <span class="mono">${esc(i.project_code)}</span>` : ''}${i.client_email ? ' · ' + esc(i.client_email) : ''}</p></div>
+            <p class="muted"><span class="mono">${esc(i.number)}</span>${i.project_code ? ` · <span class="mono">${esc(i.project_code)}</span>` : ''}${i.client_email ? ' · ' + esc(i.client_email) : ''}</p>
+            ${i.balance && i.reminded_at ? `<p class="adm-small muted">Reminded ${ago(i.reminded_at)}</p>` : ''}</div>
           <div class="adm-card-meta"><span class="muted">${i.balance ? 'Pending' : 'Paid'}</span><strong>${kes(i.balance || i.total)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
         </header>
         <div class="adm-lines">${i.lines.map((l) => `<div><span>${esc(l.desc)}</span><span>${kes(l.amount)}</span></div>`).join('')}
           <div class="adm-lines-total"><span>Total ${kes(i.total)}${i.paid ? ` · paid ${kes(i.paid)}` : ''}</span><span></span></div></div>
         <div class="adm-actions">
           ${i.balance ? `<button type="button" class="adm-link" data-act="send">${i.paid ? 'Email balance' : 'Email invoice'}</button>
+          ${Admin.can('reminders') ? '<button type="button" class="adm-link" data-act="remind">Send reminder</button>' : ''}
           <button type="button" class="adm-link" data-copy="${esc(payLink(i.number))}">Copy pay link</button>
           <button type="button" class="adm-link" data-act="record">Record a payment</button>` : ''}
           ${i.paid ? '' : '<button type="button" class="adm-link danger" data-act="delete">Delete</button>'}
         </div>
         <div class="adm-slot"></div>
       </article>`;
+    const moneyFilter = dropdown($('#moneyFilter'), { label: 'Show', value: 'due', options: [{ value: 'due', label: 'Pending' }], onChange: (v) => { mFilter = v; renderMoney(); } });
     const renderMoney = () => {
-      const list = invoices.filter((i) => mFilter === 'all' || (mFilter === 'due' ? i.balance > 0 : !i.balance));
+      moneyFilter.update([
+        { value: 'due', label: 'Pending', count: invoices.filter((i) => i.balance > 0).length },
+        { value: 'overdue', label: 'Overdue', count: invoices.filter(isOverdue).length },
+        { value: 'paid', label: 'Paid', count: invoices.filter((i) => !i.balance).length },
+        { value: 'all', label: 'All', count: invoices.length },
+      ]);
+      const list = invoices.filter((i) => (mFilter === 'all' || (mFilter === 'due' ? i.balance > 0 : mFilter === 'overdue' ? isOverdue(i) : !i.balance))
+        && match(mQuery, i.client_name, i.client_company, i.number, i.project_code, i.client_email));
       const total = list.reduce((a, i) => a + i.balance, 0);
-      $('#moneyList').innerHTML = (mFilter === 'due' && list.length ? `<p class="adm-sum">${list.length} pending · <strong>${kes(total)}</strong> to collect</p>` : '')
-        + (list.length ? list.map(moneyCard).join('') : empty(mFilter === 'due' ? 'Nothing pending. Everyone is paid up.' : 'Nothing here yet.'));
+      $('#moneyList').innerHTML = ((mFilter === 'due' || mFilter === 'overdue') && list.length ? `<p class="adm-sum">${list.length} ${mFilter === 'due' ? 'pending' : 'overdue'} · <strong>${kes(total)}</strong> to collect</p>` : '')
+        + (list.length ? list.map(moneyCard).join('') : empty(mQuery ? 'Nothing matches that search.' : mFilter === 'due' ? 'Nothing pending. Everyone is paid up.' : mFilter === 'overdue' ? 'Nothing overdue.' : 'Nothing here yet.'));
     };
     const loadMoney = async () => {
       if (!projects.length) loadProjects();
       invoices = await A('/api/admin/invoices').catch((e) => (toast(e.message), []));
       renderMoney();
     };
-    $('#moneyFilter').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-f]'); if (!b) return;
-      mFilter = b.dataset.f;
-      $$('#moneyFilter button').forEach((x) => x.classList.toggle('on', x === b));
-      renderMoney();
-    });
+    $('#moneySearch').addEventListener('input', (e) => { mQuery = e.target.value.trim().toLowerCase(); renderMoney(); });
     document.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copy(c.dataset.copy, 'Pay link copied'); });
+    const remindOne = async (inv) => {
+      if (!await confirmUI({ title: `Remind ${inv.client_name}?`, text: `They get a friendly email about the ${kes(inv.balance)} left on ${esc(inv.number)}, with a Pay button.${inv.reminded_at ? ` Last reminded ${ago(inv.reminded_at)}.` : ''}`, ok: 'Send reminder' })) return false;
+      try {
+        const r = await A('/api/admin/reminders/payments', { method: 'POST', body: { invoices: [inv.number], note: '' } });
+        toast(r.sent.length ? 'Reminder sent' : 'No email address on this invoice');
+        return true;
+      } catch (err) { toast(err.message); return false; }
+    };
     $('#moneyList').addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
       const card = btn.closest('.adm-card'), inv = invoices.find((x) => x.number === card.dataset.number);
       if (btn.dataset.act === 'delete') {
-        if (!confirm(`Delete ${inv.number} (${kes(inv.total)} for ${inv.client_name})?`)) return;
+        if (!await confirmUI({ title: `Delete ${inv.number}?`, text: `${kes(inv.total)} for ${esc(inv.client_name)}. The pay link stops working.`, ok: 'Delete invoice', danger: true })) return;
         try { await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}`, { method: 'DELETE' }); toast('Deleted'); loadMoney(); }
         catch (err) { toast(err.message); }
         return;
       }
+      if (btn.dataset.act === 'remind') { if (await remindOne(inv)) loadMoney(); return; }
       if (btn.dataset.act === 'send') {
         btn.disabled = true;
         try { const r = await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}/send`, { method: 'POST' }); toast(`Sent to ${r.to.join(', ')}`); }
@@ -558,28 +678,116 @@
       });
     });
 
+    /* ── Reminders ── */
+    let rFilter = 'overdue', picked = new Set();
+    const remFilter = dropdown($('#remFilter'), { label: 'Show', value: 'overdue', options: [{ value: 'overdue', label: 'Overdue' }], onChange: (v) => { rFilter = v; renderReminders(); } });
+    const renderReminders = () => {
+      const due = invoices.filter((i) => i.balance > 0);
+      remFilter.update([
+        { value: 'overdue', label: 'Overdue', count: due.filter(isOverdue).length },
+        { value: 'due', label: 'All pending', count: due.length },
+        { value: 'never', label: 'Never reminded', count: due.filter((i) => !i.reminded_at).length },
+      ]);
+      const list = due.filter((i) => rFilter === 'due' || (rFilter === 'overdue' ? isOverdue(i) : !i.reminded_at));
+      picked = new Set([...picked].filter((n) => list.some((i) => i.number === n)));
+      $('#remList').innerHTML = list.length ? `
+        <label class="rem-row rem-all"><input type="checkbox" id="remAll" ${picked.size === list.length ? 'checked' : ''} /><span>Select all ${list.length}</span></label>`
+        + list.map((i) => `
+        <label class="rem-row${picked.has(i.number) ? ' on' : ''}">
+          <input type="checkbox" value="${esc(i.number)}" ${picked.has(i.number) ? 'checked' : ''} ${i.client_email || i.project_code ? '' : 'disabled'} />
+          <div><strong>${esc(i.client_name)}</strong><span class="muted"><span class="mono">${esc(i.number)}</span>${i.client_email ? ' · ' + esc(i.client_email) : i.project_code ? '' : ' · no email'}</span></div>
+          <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
+          <div class="adm-right rem-last"><span class="muted">${i.reminded_at ? 'Reminded ' + ago(i.reminded_at) : 'Not reminded yet'}</span></div>
+        </label>`).join('')
+        : empty(rFilter === 'overdue' ? 'Nothing overdue. Nice.' : rFilter === 'never' ? 'Every pending invoice has had a reminder.' : 'Nothing pending. Everyone is paid up.');
+      const sum = list.filter((i) => picked.has(i.number)).reduce((a, i) => a + i.balance, 0);
+      $('#remSend').hidden = !list.length;
+      $('#remPicked').textContent = picked.size ? `${picked.size} selected · ${kes(sum)}` : 'Pick who to remind';
+      $('#remGo').disabled = !picked.size;
+      $('#remGo').textContent = picked.size > 1 ? `Send ${picked.size} reminders` : 'Send reminder';
+    };
+    $('#remList').addEventListener('change', (e) => {
+      if (e.target.id === 'remAll') { $$('#remList input[value]:not(:disabled)').forEach((c) => e.target.checked ? picked.add(c.value) : picked.delete(c.value)); }
+      else if (e.target.value) e.target.checked ? picked.add(e.target.value) : picked.delete(e.target.value);
+      renderReminders();
+    });
+    $('#remGo').addEventListener('click', async () => {
+      const n = picked.size;
+      if (!await confirmUI({ title: `Send ${n} reminder${n === 1 ? '' : 's'}?`, text: 'Each client gets their own email with their balance and a Pay button.', ok: 'Send' })) return;
+      $('#remGo').disabled = true;
+      try {
+        const r = await A('/api/admin/reminders/payments', { method: 'POST', body: { invoices: [...picked], note: $('#rem-note').value.trim() } });
+        toast(`Sent ${r.sent.length} reminder${r.sent.length === 1 ? '' : 's'}${r.skipped.length ? ` · ${r.skipped.length} skipped (no email)` : ''}`);
+        picked.clear(); $('#rem-note').value = '';
+        loadReminders();
+      } catch (err) { toast(err.message); $('#remGo').disabled = false; }
+    });
+    const msgPicked = new Set();
+    const renderMsgProjects = () => {
+      const list = projects.filter((p) => p.code !== DEMO && p.status !== 'completed');
+      $('#msgProjects').innerHTML = list.length ? list.map((p) => `<label class="chip${msgPicked.has(p.code) ? ' on' : ''}"><input type="checkbox" value="${esc(p.code)}" ${msgPicked.has(p.code) ? 'checked' : ''} />${esc(p.title)}<span>${esc(p.client_name)}</span></label>`).join('') : '<p class="muted adm-small">No active projects.</p>';
+    };
+    $('#msgProjects').addEventListener('change', (e) => { e.target.checked ? msgPicked.add(e.target.value) : msgPicked.delete(e.target.value); e.target.closest('.chip').classList.toggle('on', e.target.checked); });
+    $('#msgForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      let ok = true;
+      [['subject', !!f.subject.value.trim()], ['message', !!f.message.value.trim()]].forEach(([n, good]) => { f[n].closest('.field').classList.toggle('invalid', !good); ok = ok && good; });
+      if (!msgPicked.size) { toast('Pick at least one project'); ok = false; }
+      if (!ok) return;
+      const n = msgPicked.size;
+      if (!await confirmUI({ title: `Send to ${n} project${n === 1 ? '' : 's'}?`, text: `“${esc(f.subject.value.trim())}” goes to everyone on ${n === 1 ? 'that project' : 'each project'}.`, ok: 'Send message' })) return;
+      try {
+        const r = await A('/api/admin/reminders/messages', { method: 'POST', body: { projects: [...msgPicked], subject: f.subject.value.trim(), message: f.message.value.trim() } });
+        toast(`Sent to ${r.sent.length} project${r.sent.length === 1 ? '' : 's'}`);
+        f.reset(); msgPicked.clear(); renderMsgProjects(); loadHistory();
+      } catch (err) { toast(err.message); }
+    });
+    const loadHistory = async () => {
+      const list = await A('/api/admin/reminders').catch(() => []);
+      $('#remHistory').innerHTML = list.length ? list.slice(0, 30).map((r) => `
+        <div class="adm-row-item">
+          <div><strong>${esc(r.client_name)}</strong><span class="muted">${esc(r.subject)}</span></div>
+          <div class="adm-right"><span class="adm-tag ${r.kind === 'payment' ? 'success' : ''}">${r.kind === 'payment' ? 'Payment' : 'Message'}</span><span class="muted">${ago(r.created_at)}${r.sent_by ? ' · ' + esc(r.sent_by) : ''}</span></div>
+        </div>`).join('') : empty('Nothing sent yet.');
+    };
+    const loadReminders = async () => {
+      const [inv] = await Promise.all([A('/api/admin/invoices').catch((e) => (toast(e.message), [])), loadProjects()]);
+      invoices = inv;
+      renderReminders(); renderMsgProjects(); loadHistory();
+    };
+
     /* ── Quotes ── */
-    const loadQuotes = async () => {
-      const list = await A('/api/admin/quotes').catch((e) => (toast(e.message), []));
+    let quotes = [], qFilter = 'all';
+    const QSTATUS = { new: 'New', quoted: 'Quoted', won: 'Won', lost: 'Lost' };
+    const quoteFilter = dropdown($('#quoteFilter'), { label: 'Status', value: 'all', options: [{ value: 'all', label: 'All' }], onChange: (v) => { qFilter = v; renderQuotes(); } });
+    const renderQuotes = () => {
+      quoteFilter.update([{ value: 'all', label: 'All', count: quotes.length }, ...Object.entries(QSTATUS).map(([k, v]) => ({ value: k, label: v, count: quotes.filter((q) => q.status === k).length }))]);
+      const list = quotes.filter((q) => qFilter === 'all' || q.status === qFilter);
       $('#quoteList').innerHTML = list.length ? list.map((q) => `
         <article class="adm-card status-${q.status === 'new' ? 'new' : q.status === 'won' ? 'completed' : ''}" data-number="${esc(q.number)}">
           <header>
             <div><h3>${esc(q.name)}${q.company ? ` <span class="muted">· ${esc(q.company)}</span>` : ''}</h3>
               <p class="muted"><a href="mailto:${esc(q.email)}?subject=${encodeURIComponent('Your quote ' + q.number)}">${esc(q.email)}</a>${q.phone ? ' · ' + esc(q.phone) : ''}</p></div>
-            <div class="adm-card-meta"><span class="mono">${esc(q.number)}</span><span class="muted">${fmtDate(q.created_at)}</span>
-              <select data-qstatus aria-label="Status">${['new', 'quoted', 'won', 'lost'].map((s) => `<option${s === q.status ? ' selected' : ''}>${s}</option>`).join('')}</select></div>
+            <div class="adm-card-meta"><span class="mono">${esc(q.number)}</span><span class="muted">${fmtDate(q.created_at)}</span><div data-qstatus></div></div>
           </header>
           <p><strong>${esc(q.services.map((id) => SERVICES.find((s) => s.id === id)?.name || id).join(', '))}</strong>${q.extras.length ? ' + ' + esc(q.extras.join(', ')) : ''} · <span class="muted">${TIMELINE[q.timeline] || esc(q.timeline)}</span></p>
           ${q.brief ? `<p class="muted adm-small">${esc(q.brief).replace(/\n/g, '<br>')}</p>` : ''}
-          <div class="adm-actions"><button type="button" class="adm-link" data-start data-name="${esc(q.name)}" data-email="${esc(q.email)}" data-company="${esc(q.company)}">Start a project from this</button></div>
-        </article>`).join('') : empty('No quote requests yet.');
+          ${Admin.can('projects') ? `<div class="adm-actions"><button type="button" class="adm-link" data-start data-name="${esc(q.name)}" data-email="${esc(q.email)}" data-company="${esc(q.company)}">Start a project from this</button></div>` : ''}
+        </article>`).join('') : empty(qFilter === 'all' ? 'No quote requests yet.' : `No ${QSTATUS[qFilter].toLowerCase()} quotes.`);
+      $$('#quoteList [data-qstatus]').forEach((el) => {
+        const n = el.closest('.adm-card').dataset.number, q = quotes.find((x) => x.number === n);
+        dropdown(el, { label: '', value: q.status, options: Object.entries(QSTATUS).map(([k, v]) => ({ value: k, label: v })), onChange: async (v) => {
+          try { await A(`/api/admin/quotes/${encodeURIComponent(n)}`, { method: 'PATCH', body: { status: v } }); q.status = v; toast('Saved'); renderQuotes(); }
+          catch (err) { toast(err.message); }
+        } });
+      });
     };
-    $('#quoteList').addEventListener('change', async (e) => {
-      if (!e.target.matches('[data-qstatus]')) return;
-      const n = e.target.closest('.adm-card').dataset.number;
-      try { await A(`/api/admin/quotes/${encodeURIComponent(n)}`, { method: 'PATCH', body: { status: e.target.value } }); toast('Saved'); }
-      catch (err) { toast(err.message); }
-    });
+    const loadQuotes = async () => {
+      quotes = await A('/api/admin/quotes').catch((e) => (toast(e.message), []));
+      Admin.count('quotes', quotes.filter((q) => q.status === 'new').length);
+      renderQuotes();
+    };
     $('#quoteList').addEventListener('click', (e) => {
       const b = e.target.closest('[data-start]'); if (!b) return;
       go('projects');
@@ -590,25 +798,103 @@
     });
 
     /* ── Payments ── */
-    const loadPayments = async () => {
-      const list = await A('/api/admin/payments').catch((e) => (toast(e.message), []));
+    let payments = [], payF = 'all';
+    const PSTATUS = { success: 'Paid', pending: 'Pending', failed: 'Failed' };
+    const payFilter = dropdown($('#payFilter'), { label: 'Status', value: 'all', options: [{ value: 'all', label: 'All' }], onChange: (v) => { payF = v; renderPayments(); } });
+    const renderPayments = () => {
+      payFilter.update([{ value: 'all', label: 'All', count: payments.length }, ...Object.entries(PSTATUS).map(([k, v]) => ({ value: k, label: v, count: payments.filter((p) => p.status === k).length }))]);
+      const list = payments.filter((p) => payF === 'all' || p.status === payF);
       $('#paymentList').innerHTML = list.length ? `<div class="adm-thead"><span>Date</span><span>Client</span><span>Amount</span><span>Status</span><span>Reference</span></div>` + list.map((p) => `
         <div><span class="muted">${fmtDateTime(p.paid_at || p.created_at)}</span>
         <span><strong>${esc(p.name)}</strong><br><span class="muted">${esc(p.description)}</span></span>
         <span>${kes(p.amount)}</span>
-        <span class="adm-tag ${p.status}">${p.status === 'success' ? 'Paid' : p.status === 'failed' ? 'Failed' : 'Pending'}</span>
-        <span class="mono">${esc(p.method)}${p.mpesa_code ? ' · ' + esc(p.mpesa_code) : ''}</span></div>`).join('') : empty('No payments yet.');
+        <span class="adm-tag ${p.status}">${PSTATUS[p.status] || 'Pending'}</span>
+        <span class="mono">${esc(p.method)}${p.mpesa_code ? ' · ' + esc(p.mpesa_code) : ''}</span></div>`).join('') : empty('No payments here yet.');
+    };
+    const loadPayments = async () => {
+      payments = await A('/api/admin/payments').catch((e) => (toast(e.message), []));
+      renderPayments();
     };
 
-    /* ── Email ── */
-    $('#testMail').addEventListener('click', async (e) => {
-      e.target.disabled = true;
-      try { const r = await A('/api/admin/email-test', { method: 'POST' }); toast(`Sent ${r.sent} sample emails to ${r.to}`); }
+    /* ── Team ── */
+    let team = [];
+    const SECTIONS = () => Admin.info.sections;
+    const accessBoxes = (have, name) => Object.entries(SECTIONS()).map(([k, v]) => `<label class="chip${have.includes(k) ? ' on' : ''}"><input type="checkbox" name="${name}" value="${k}" ${have.includes(k) ? 'checked' : ''} />${v}</label>`).join('');
+    const keyNote = (name, key) => `Here's ${esc(name)}'s key. <strong>Copy it now</strong>: it won't be shown again.<br><span class="mono">${esc(key)}</span><br><button type="button" class="adm-link" data-key="${esc(key)}">Copy key</button>`;
+    document.addEventListener('click', (e) => { const k = e.target.closest('[data-key]'); if (k) copy(k.dataset.key, 'Key copied'); });
+    const tf = $('#teamForm');
+    tf.addEventListener('change', (e) => { if (e.target.matches('.chip input')) e.target.closest('.chip').classList.toggle('on', e.target.checked); });
+    tf.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const access = $$('#tmAccess input:checked').map((c) => c.value);
+      const nameOk = !!tf.name.value.trim(), emailOk = !tf.email.value.trim() || tf.email.checkValidity();
+      tf.name.closest('.field').classList.toggle('invalid', !nameOk);
+      tf.email.closest('.field').classList.toggle('invalid', !emailOk);
+      if (!access.length) toast('Tick at least one section');
+      if (!nameOk || !emailOk || !access.length) return;
+      if (tf.send_email.checked && !tf.email.value.trim()) { tf.email.closest('.field').classList.add('invalid'); return toast('Add their email to send the key'); }
+      try {
+        const r = await A('/api/admin/team', { method: 'POST', body: { name: tf.name.value.trim(), email: tf.email.value.trim(), access, send_email: tf.send_email.checked } });
+        $('#tmDone').hidden = false;
+        $('#tmDone').innerHTML = keyNote(r.member.name, r.key) + (tf.send_email.checked ? '<br>Also emailed to them.' : '');
+        tf.reset(); $('#tmAccess').innerHTML = accessBoxes(['money', 'reminders'], 'access');
+        loadTeam();
+      } catch (err) { toast(err.message); }
+    });
+    const renderTeam = () => {
+      $('#teamList').innerHTML = (team.length ? team.map((m) => `
+        <article class="adm-card${m.active ? '' : ' is-off'}" data-id="${m.id}">
+          <header>
+            <div class="adm-me"><span class="adm-avatar">${esc(m.name.slice(0, 1).toUpperCase())}</span><div><strong>${esc(m.name)}</strong><span>${m.email ? esc(m.email) + ' · ' : ''}key ends <span class="mono">${esc(m.key_hint)}</span></span></div></div>
+            <div class="adm-card-meta"><span class="adm-tag ${m.active ? 'success' : ''}">${m.active ? 'Active' : 'Paused'}</span><span class="muted">${m.last_seen_at ? 'Seen ' + ago(m.last_seen_at) : 'Not signed in yet'}</span></div>
+          </header>
+          <div class="tm-access">${accessBoxes(m.access, 'm' + m.id)}</div>
+          <div class="adm-actions">
+            <button type="button" class="adm-link" data-act="active">${m.active ? 'Pause access' : 'Turn access back on'}</button>
+            <button type="button" class="adm-link" data-act="key">New key</button>
+            <button type="button" class="adm-link danger" data-act="remove">Remove</button>
+          </div>
+          <div class="adm-slot"></div>
+        </article>`).join('') : empty('Nobody else yet. Add someone on the left.'));
+    };
+    const loadTeam = async () => {
+      if (!$('#tmAccess').innerHTML) $('#tmAccess').innerHTML = accessBoxes(['money', 'reminders'], 'access');
+      team = await A('/api/admin/team').catch((e) => (toast(e.message), []));
+      renderTeam();
+    };
+    $('#teamList').addEventListener('change', async (e) => {
+      if (!e.target.matches('.chip input')) return;
+      const card = e.target.closest('.adm-card'), id = card.dataset.id;
+      const access = $$('.chip input:checked', card).map((c) => c.value);
+      if (!access.length) { e.target.checked = true; return toast('Keep at least one section, or pause their access'); }
+      e.target.closest('.chip').classList.toggle('on', e.target.checked);
+      try { await A(`/api/admin/team/${id}`, { method: 'PATCH', body: { access } }); toast('Access updated'); }
       catch (err) { toast(err.message); }
-      finally { e.target.disabled = false; }
+    });
+    $('#teamList').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]'); if (!btn) return;
+      const card = btn.closest('.adm-card'), m = team.find((x) => String(x.id) === card.dataset.id);
+      try {
+        if (btn.dataset.act === 'active') {
+          await A(`/api/admin/team/${m.id}`, { method: 'PATCH', body: { active: !m.active } });
+          toast(m.active ? `${m.name} can't sign in for now` : `${m.name} can sign in again`); loadTeam();
+        } else if (btn.dataset.act === 'key') {
+          if (!await confirmUI({ title: `New key for ${m.name}?`, text: 'Their current key stops working straight away. You\'ll need to give them the new one.', ok: 'Make new key' })) return;
+          const r = await A(`/api/admin/team/${m.id}/key`, { method: 'POST' });
+          await loadTeam();
+          const slot = $(`#teamList [data-id="${m.id}"] .adm-slot`);
+          slot.innerHTML = `<div class="adm-note">${keyNote(m.name, r.key)}</div>`;
+        } else if (btn.dataset.act === 'remove') {
+          if (!await confirmUI({ title: `Remove ${m.name}?`, text: 'Their key stops working and they lose access to the dashboard.', ok: 'Remove', danger: true })) return;
+          await A(`/api/admin/team/${m.id}`, { method: 'DELETE' }); toast('Removed'); loadTeam();
+        }
+      } catch (err) { toast(err.message); }
     });
 
-    localStorage.getItem('deon.adminKey') ? open() : ($('#gate').hidden = false);
+    Admin.start().then(() => {
+      Admin.sidebar('overview');
+      go(location.hash.slice(1) || 'overview');
+    });
   })();
   </script>
 </body>

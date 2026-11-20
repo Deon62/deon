@@ -19,48 +19,31 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
+<body class="adm-body">
 
-  <header class="nav-wrapper" id="nav">
-    <nav class="nav" aria-label="Main">
-      <a href="/" class="nav-logo" aria-label="Deon Orina, home">deon<span>.</span></a>
-      <div class="nav-center">
-        <a href="/">Home</a>
-        <a href="/services">Services</a>
-        <a href="/about">About</a>
-        <a href="/quote">Get a quote</a>
-        <a href="/pay">Pay</a>
-        <a href="/track">Track</a>
-      </div>
-      <div class="nav-right">
-        <a href="/quote" class="btn btn-sm">Start a project</a>
-      </div>
-      <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer"><span></span><span></span><span></span></button>
-    </nav>
-  </header>
-  <div class="nav-drawer" id="navDrawer">
-    <a href="/">Home</a>
-    <a href="/services">Services</a>
-    <a href="/about">About</a>
-    <a href="/quote">Get a quote</a>
-    <a href="/pay">Pay</a>
-    <a href="/track">Track</a>
-    <a href="/quote" class="btn">Start a project</a>
-  </div>
+  <!-- Locked -->
+  <section class="adm-gate" id="gate" hidden>
+    <form class="adm-gate-card form" id="gateForm" novalidate>
+      <a href="/" class="nav-logo">deon<span>.</span></a>
+      <h1>Invoice builder</h1>
+      <p class="muted">Enter your admin key, or the access key Deon gave you. It's kept in this browser only.</p>
+      <div class="field"><label for="a-key">Key</label><input id="a-key" type="password" autocomplete="current-password" required /></div>
+      <p class="field-hint" id="gateMsg" hidden style="color:var(--red)"></p>
+      <button class="btn btn-ink btn-full" type="submit">Open</button>
+    </form>
+  </section>
 
-  <main class="page">
-    <div class="wrap">
-      <div class="page-head no-print">
-        <h1 class="type-statement">New invoice.</h1>
-        <p class="type-lede muted">Fill in the details on the left. Save it to get a payment link for the client, or print it as a PDF.</p>
-      </div>
+  <div class="adm" id="app" hidden>
+    <aside class="adm-side no-print" id="admSide"></aside>
 
+    <main class="adm-main">
+      <header class="adm-head no-print">
+        <div><p class="muted">Line items, VAT and notes. Save it to email the client a payment link, or print it as a PDF.</p><h1>Invoice builder</h1></div>
+        <a class="btn btn-sm btn-outline" href="/admin#money">Pending amounts</a>
+      </header>
       <div class="split" style="grid-template-columns:minmax(0,5fr) minmax(0,7fr)">
-        <form class="panel form no-print" id="invForm" novalidate>
-          <div class="form-row">
-            <div class="field"><label for="i-key">Admin key</label><input id="i-key" type="password" autocomplete="current-password" placeholder="From Render: ADMIN_KEY" /></div>
-            <div class="field"><label for="i-project">Project code <span class="opt">(optional)</span></label><input id="i-project" name="project" class="mono" placeholder="DO-XXXXXX" autocomplete="off" /></div>
-          </div>
+        <form class="adm-box form no-print" id="invForm" novalidate>
+          <div class="field"><label for="i-project">Project <span class="opt">(optional)</span></label><select id="i-project" name="project"><option value="">No project</option></select></div>
           <div class="form-row">
             <div class="field"><label for="i-number">Invoice no.</label><input id="i-number" name="number" class="mono" placeholder="Auto" /></div>
             <div class="field"><label for="i-due">Due in</label>
@@ -96,25 +79,28 @@
           </div>
         </form>
 
-        <div class="sticky">
+        <div class="sticky inv-sticky">
           <article class="doc" id="doc" aria-label="Invoice preview"></article>
         </div>
       </div>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <script src="/script.js"></script>
+  <script src="/admin-ui.js"></script>
   <script>
   (() => {
     const form = $('#invForm');
     const itemsEl = $('#items');
-    const keyInput = $('#i-key');
-    keyInput.value = localStorage.getItem('deon.adminKey') || '';
     const loadNumber = () => api('/api/admin/invoices/next-number', { admin: true })
       .then((r) => { if (!form.number.value) { form.number.placeholder = r.number; render(); } })
       .catch(() => {});
-    keyInput.addEventListener('change', () => { localStorage.setItem('deon.adminKey', keyInput.value.trim()); loadNumber(); });
-    wakeApi();
+    let projects = [];
+    /* Picking a project fills in the client. */
+    form.project.addEventListener('change', () => {
+      const p = projects.find((x) => x.code === form.project.value);
+      if (p) { form.clientName.value = p.client_name; form.clientEmail.value = p.client_email; render(); }
+    });
 
     const addLine = (desc = '', qty = 1, rate = '') => {
       const row = document.createElement('div');
@@ -186,7 +172,16 @@
     form.addEventListener('change', render);
     $('#addLine').addEventListener('click', () => { addLine(); render(); $$('[data-k=desc]', itemsEl).pop().focus(); });
     render();
-    if (keyInput.value) loadNumber();
+    Admin.start().then(async () => {
+      Admin.sidebar('invoice');
+      if (!Admin.can('money')) { $('.split').innerHTML = '<p class="muted">You do not have access to invoices. Ask Deon to add Pending amounts to your access.</p>'; return; }
+      loadNumber();
+      projects = await api('/api/admin/projects', { admin: true }).catch(() => []);
+      form.project.innerHTML = '<option value="">No project</option>' + projects.filter((p) => p.code !== 'DO-DEMO01' && p.status !== 'completed')
+        .map((p) => `<option value="${esc(p.code)}">${esc(p.title)} · ${esc(p.client_name)}</option>`).join('');
+      const pre = params().project;
+      if (pre) { form.project.value = pre.toUpperCase(); form.project.dispatchEvent(new Event('change')); }
+    });
 
     $('#printBtn').addEventListener('click', () => print());
 
@@ -196,14 +191,12 @@
       if (!inv.total) return toast('Add at least one line item with a rate');
       form.clientName.closest('.field').classList.remove('invalid');
 
-      if (!keyInput.value.trim()) { keyInput.focus(); return toast('Enter your admin key first'); }
-      localStorage.setItem('deon.adminKey', keyInput.value.trim());
       const btn = $('#saveBtn');
       btn.disabled = true;
       try {
         const saved = await api('/api/admin/invoices', { method: 'POST', admin: true, body: {
           number: form.number.value.trim() || null,
-          project_code: form.project.value.trim() || null,
+          project_code: form.project.value || null,
           client_name: inv.client.name, client_company: inv.client.company,
           client_email: inv.client.email, client_phone: inv.client.phone,
           items: inv.items.filter((i) => i.desc && i.qty > 0), vat: form.vat.checked,
@@ -216,7 +209,7 @@
         try { await navigator.clipboard.writeText(link); toast(`Saved${mailed}. Payment link copied`); }
         catch { toast('Saved. Link: ' + link); }
       } catch (err) {
-        toast(err.status === 401 ? 'Wrong admin key' : err.message);
+        toast(err.message);
       } finally { btn.disabled = false; }
     });
   })();

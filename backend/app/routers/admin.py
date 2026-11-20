@@ -1,27 +1,37 @@
-"""Endpoints only you use (from /admin and /invoice). Every call needs the X-Admin-Key header."""
+"""Endpoints only you and your team use (from /admin and /invoice). Every call needs the X-Admin-Key header:
+your ADMIN_KEY (the owner, sees everything) or a team member's own key (only the sections you gave them)."""
 
+import hashlib
 import secrets
-from datetime import date, timedelta
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import emails
 from ..config import get_settings
 from ..db import get_db
-from ..models import Invoice, Payment, Project, ProjectUpdate, Quote
+from ..demo import DEMO_CODE, seed_demo
+from ..models import SECTIONS, Invoice, Payment, Project, ProjectUpdate, Quote, Reminder, TeamMember
 from .public import mark_success
 from ..schemas import (
     InvoiceIn,
     ManualPaymentIn,
     InvoiceOut,
+    MessageIn,
     PaymentOut,
+    PaymentReminderIn,
     ProjectIn,
     ProjectOut,
     ProjectPatch,
     QuoteOut,
     QuoteStatusIn,
+    ReminderOut,
+    TeamIn,
+    TeamOut,
+    TeamPatch,
     UpdateIn,
 )
 from ..utils import RateLimit, next_number, random_code
@@ -29,20 +39,69 @@ from ..utils import RateLimit, next_number, random_code
 admin_limit = RateLimit(hits=120, window=60)
 
 
-def require_admin(x_admin_key: str = Header("")) -> None:
-    key = get_settings().admin_key
-    if not key:
+@dataclass
+class Actor:
+    name: str
+    owner: bool
+    access: set[str] = field(default_factory=set)
+
+    def can(self, section: str) -> bool:
+        return self.owner or section in self.access
+
+
+def hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def _needs(path: str, method: str) -> set[str] | None:
+    """Which sections may call this path. None = anyone signed in. Empty set = owner only."""
+    part = path.removeprefix("/api/admin").strip("/").split("/")[0]
+    if part in ("check", "overview"):
+        return None
+    if part == "projects" and method == "GET":
+        return {"projects", "money", "reminders"}  # the money and reminder forms list projects
+    if part in ("projects", "demo"):
+        return {"projects"}
+    if part == "invoices":
+        return {"money"}
+    if part in ("quotes", "payments", "reminders"):
+        return {part}
+    return set()  # team, email-test
+
+
+def require_admin(request: Request, x_admin_key: str = Header(""), db: Session = Depends(get_db)) -> Actor:
+    s = get_settings()
+    if not s.admin_key:
         raise HTTPException(503, "Admin is disabled: set ADMIN_KEY on the server.")
-    if not secrets.compare_digest(x_admin_key, key):
-        raise HTTPException(401, "Wrong admin key.")
+    if x_admin_key and secrets.compare_digest(x_admin_key, s.admin_key):
+        actor = Actor(name="Deon", owner=True, access=set(SECTIONS))
+    else:
+        m = db.scalar(select(TeamMember).where(TeamMember.key_hash == hash_key(x_admin_key))) if x_admin_key else None
+        if not m or not m.active:
+            raise HTTPException(401, "Wrong admin key.")
+        if not m.last_seen_at or datetime.now(timezone.utc) - _aware(m.last_seen_at) > timedelta(minutes=5):
+            m.last_seen_at = datetime.now(timezone.utc)
+            db.commit()
+        actor = Actor(name=m.name, owner=False, access=set(m.access or []))
+    need = _needs(request.url.path, request.method)
+    if need is not None and not actor.owner and not (need & actor.access):
+        raise HTTPException(403, "You don't have access to this. Ask Deon to add it.")
+    request.state.actor = actor
+    return actor
+
+
+def _aware(d: datetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_limit), Depends(require_admin)])
 
 
 @router.get("/check")
-def check() -> dict:
-    return {"ok": True, "email": emails.enabled()}
+def check(request: Request) -> dict:
+    a: Actor = request.state.actor
+    return {"ok": True, "email": emails.enabled(), "name": a.name, "owner": a.owner,
+            "access": sorted(a.access), "sections": SECTIONS}
 
 
 @router.post("/email-test")
@@ -79,29 +138,74 @@ async def email_test() -> dict:
 
 # ── Overview ────────────────────────────────────────────────────────
 @router.get("/overview")
-def overview(db: Session = Depends(get_db)) -> dict:
-    invoices = db.scalars(select(Invoice).options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
-    outstanding = sorted((i for i in invoices if i.balance > 0), key=lambda i: (i.due_date or date.max, i.created_at))
-    paid = db.scalars(select(Payment).where(Payment.status == "success").order_by(Payment.paid_at.desc())).all()
-    month = date.today().replace(day=1)
-    projects = db.scalars(select(Project).options(selectinload(Project.updates)).order_by(Project.updated_at.desc())).all()
-    counts = {s: sum(1 for p in projects if p.status == s) for s in ("active", "paused", "completed")}
-    return {
-        "outstanding_total": sum(i.balance for i in outstanding),
-        "outstanding_count": len(outstanding),
-        "overdue_count": sum(1 for i in outstanding if i.due_date and i.due_date < date.today()),
-        "collected_month": sum(p.amount for p in paid if p.paid_at and p.paid_at.date() >= month),
-        "collected_total": sum(p.amount for p in paid),
-        "projects": counts,
-        "quotes_new": len(db.scalars(select(Quote.id).where(Quote.status == "new")).all()),
-        "outstanding": [_invoice_out(i).model_dump(mode="json") for i in outstanding[:8]],
-        "recent_payments": [PaymentOut.model_validate(p).model_dump(mode="json") for p in paid[:6]],
-        "projects_recent": [
-            {"code": p.code, "title": p.title, "client_name": p.client_name, "status": p.status,
-             "stage": p.stage, "progress": p.progress, "updated_at": p.updated_at.isoformat()}
-            for p in projects if p.status != "completed"
-        ][:6],
-    }
+def overview(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Everything the Overview page shows. Parts a team member can't open are left out. The sample project isn't counted."""
+    a: Actor = request.state.actor
+    today = date.today()
+    out: dict = {"name": a.name}
+
+    if a.can("money") or a.can("payments"):
+        invoices = db.scalars(select(Invoice).options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
+        outstanding = sorted((i for i in invoices if i.balance > 0), key=lambda i: (i.due_date or date.max, i.created_at))
+        paid = db.scalars(select(Payment).where(Payment.status == "success").order_by(Payment.paid_at.desc())).all()
+        # Collected per month for the last 6 months, oldest first.
+        months = []
+        y, m = today.year, today.month
+        for _ in range(6):
+            months.append((y, m))
+            y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+        months.reverse()
+        series = [{"month": f"{y}-{m:02d}", "amount": sum(p.amount for p in paid if p.paid_at and (p.paid_at.year, p.paid_at.month) == (y, m))}
+                  for y, m in months]
+        out.update({
+            "outstanding_total": sum(i.balance for i in outstanding),
+            "outstanding_count": len(outstanding),
+            "overdue_total": sum(i.balance for i in outstanding if i.due_date and i.due_date < today),
+            "overdue_count": sum(1 for i in outstanding if i.due_date and i.due_date < today),
+            "collected_month": series[-1]["amount"],
+            "collected_last_month": series[-2]["amount"],
+            "collected_total": sum(p.amount for p in paid),
+            "monthly": series,
+            "outstanding": [_invoice_out(i).model_dump(mode="json") for i in outstanding[:6]],
+            "recent_payments": [PaymentOut.model_validate(p).model_dump(mode="json") for p in paid[:6]],
+        })
+
+    if a.can("projects") or a.can("money") or a.can("reminders"):
+        projects = db.scalars(select(Project).where(Project.code != DEMO_CODE).order_by(Project.updated_at.desc())).all()
+        live = [p for p in projects if p.status != "completed"]
+        out.update({
+            "projects": {s: sum(1 for p in projects if p.status == s) for s in ("active", "paused", "completed")},
+            "stages": {s: sum(1 for p in live if p.stage == s) for s in ("discovery", "design", "build", "testing", "launch")},
+            "projects_recent": [
+                {"code": p.code, "title": p.title, "client_name": p.client_name, "status": p.status,
+                 "stage": p.stage, "progress": p.progress, "due_date": p.due_date.isoformat() if p.due_date else None,
+                 "updated_at": p.updated_at.isoformat()}
+                for p in live
+            ][:6],
+        })
+
+    if a.can("quotes"):
+        out["quotes_new"] = len(db.scalars(select(Quote.id).where(Quote.status == "new")).all())
+
+    # One feed of what happened lately, newest first.
+    feed = []
+    if a.can("payments") or a.can("money"):
+        feed += [{"kind": "payment", "at": p["paid_at"] or p["created_at"], "title": f"{p['name']} paid", "detail": p["description"],
+                  "amount": p["amount"]} for p in out.get("recent_payments", [])]
+    if a.can("projects"):
+        ups = db.scalars(select(ProjectUpdate).join(Project).where(Project.code != DEMO_CODE)
+                         .options(selectinload(ProjectUpdate.project)).order_by(ProjectUpdate.created_at.desc()).limit(6)).all()
+        feed += [{"kind": "update", "at": _aware(u.created_at).isoformat(), "title": u.title, "detail": u.project.title} for u in ups]
+    if a.can("quotes"):
+        qs = db.scalars(select(Quote).order_by(Quote.created_at.desc()).limit(4)).all()
+        feed += [{"kind": "quote", "at": _aware(q.created_at).isoformat(), "title": f"Quote request from {q.name}",
+                  "detail": q.company or q.email} for q in qs]
+    if a.can("reminders"):
+        rs = db.scalars(select(Reminder).order_by(Reminder.created_at.desc()).limit(4)).all()
+        feed += [{"kind": "reminder", "at": _aware(r.created_at).isoformat(), "title": f"Reminder to {r.client_name}",
+                  "detail": r.subject} for r in rs]
+    out["activity"] = sorted(feed, key=lambda f: f["at"], reverse=True)[:8]
+    return out
 
 
 # ── Quotes ──────────────────────────────────────────────────────────────
@@ -343,10 +447,119 @@ def post_update(code: str, body: UpdateIn, bg: BackgroundTasks, db: Session = De
     return p
 
 
+@router.post("/demo/reset", status_code=204)
+def reset_demo() -> None:
+    """Rebuild the sample project with fresh dates and its full update history."""
+    seed_demo(reset=True)
+
+
 @router.delete("/projects/{code}", status_code=204)
 def delete_project(code: str, db: Session = Depends(get_db)) -> None:
+    """Deletes the project and its updates. Its invoices and payments are kept, just no longer linked to it."""
     p = _get_project(db, code)
     for inv in db.scalars(select(Invoice).where(Invoice.project_id == p.id)):
         inv.project_id = None
     db.delete(p)
+    db.commit()
+
+
+# ── Reminders ───────────────────────────────────────────────────────────
+@router.get("/reminders", response_model=list[ReminderOut])
+def list_reminders(db: Session = Depends(get_db)):
+    return db.scalars(select(Reminder).order_by(Reminder.created_at.desc()).limit(100)).all()
+
+
+@router.post("/reminders/payments")
+def send_payment_reminders(body: PaymentReminderIn, request: Request, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
+    """Email a payment reminder for each invoice (to its contact and everyone on its project)."""
+    who = request.state.actor.name
+    numbers = {n.strip().upper() for n in body.invoices}
+    rows = db.scalars(select(Invoice).where(Invoice.number.in_(numbers))
+                      .options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
+    sent, skipped = [], []
+    for inv in rows:
+        if not inv.balance or not inv.recipients:
+            skipped.append(inv.number)
+            continue
+        data = _invoice_email(inv)
+        subject, html, text = emails.payment_reminder(data, body.note.strip())
+        bg.add_task(emails.send, inv.recipients, subject, html, text)
+        inv.reminded_at = datetime.now(timezone.utc)
+        db.add(Reminder(kind="payment", subject=subject, recipients=inv.recipients, invoice_number=inv.number,
+                        project_code=data["project_code"], client_name=inv.client_name, sent_by=who))
+        sent.append(inv.number)
+    db.commit()
+    skipped += sorted(numbers - {i.number for i in rows})
+    return {"sent": sent, "skipped": skipped}
+
+
+@router.post("/reminders/messages")
+def send_messages(body: MessageIn, request: Request, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
+    """Email your own message to everyone on each chosen project."""
+    who = request.state.actor.name
+    codes = {c.strip().upper() for c in body.projects}
+    rows = db.scalars(select(Project).where(Project.code.in_(codes), Project.code != DEMO_CODE)).all()
+    sent = []
+    for p in rows:
+        subject, html, text = emails.client_message(_project_dict(p), body.subject.strip(), body.message)
+        bg.add_task(emails.send, p.emails, subject, html, text)
+        db.add(Reminder(kind="message", subject=subject, recipients=p.emails, project_code=p.code,
+                        client_name=p.client_name, sent_by=who))
+        sent.append(p.code)
+    db.commit()
+    return {"sent": sent, "skipped": sorted(codes - set(sent))}
+
+
+# ── Team (owner only) ───────────────────────────────────────────────────
+def _new_key() -> str:
+    return "tm_" + secrets.token_urlsafe(24)
+
+
+def _get_member(db: Session, member_id: int) -> TeamMember:
+    m = db.get(TeamMember, member_id)
+    if not m:
+        raise HTTPException(404, "Team member not found.")
+    return m
+
+
+@router.get("/team", response_model=list[TeamOut])
+def list_team(db: Session = Depends(get_db)):
+    return db.scalars(select(TeamMember).order_by(TeamMember.created_at)).all()
+
+
+@router.post("/team", status_code=201)
+def add_member(body: TeamIn, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
+    """Returns their key once. Only a hash is stored, so it can't be shown again (reset it instead)."""
+    key = _new_key()
+    m = TeamMember(name=body.name.strip(), email=body.email.strip(), access=sorted(set(body.access)),
+                   key_hash=hash_key(key), key_hint=key[-4:])
+    db.add(m)
+    db.commit()
+    if body.send_email and "@" in m.email:
+        bg.add_task(emails.send, m.email, *emails.team_invite(m.name, key, [SECTIONS[x] for x in m.access]))
+    return {"member": TeamOut.model_validate(m).model_dump(mode="json"), "key": key}
+
+
+@router.patch("/team/{member_id}", response_model=TeamOut)
+def edit_member(member_id: int, body: TeamPatch, db: Session = Depends(get_db)):
+    m = _get_member(db, member_id)
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(m, k, sorted(set(v)) if k == "access" else v)
+    db.commit()
+    return m
+
+
+@router.post("/team/{member_id}/key")
+def reset_member_key(member_id: int, db: Session = Depends(get_db)) -> dict:
+    """New key for them. The old one stops working at once."""
+    m = _get_member(db, member_id)
+    key = _new_key()
+    m.key_hash, m.key_hint = hash_key(key), key[-4:]
+    db.commit()
+    return {"key": key}
+
+
+@router.delete("/team/{member_id}", status_code=204)
+def remove_member(member_id: int, db: Session = Depends(get_db)) -> None:
+    db.delete(_get_member(db, member_id))
     db.commit()

@@ -419,3 +419,68 @@ def invoice_issued(inv: dict) -> tuple[str, str, str]:
         f"Pay with M-Pesa: {pay_url}", "", "Talk soon,", "Deon",
     )
     return subject, html, text
+
+
+def payment_reminder(inv: dict, note: str = "") -> tuple[str, str, str]:
+    """A friendly nudge about an unpaid (or part-paid) invoice."""
+    name = first_name(inv["client_name"])
+    pay_url = url(f"/pay?inv={inv['number']}")
+    due = int(inv["balance"])
+    overdue = inv.get("due_date") and inv["due_date"] < date.today()
+    when = (f"was due on {e(fmt_date(inv['due_date']))}" if overdue
+            else f"is due on {e(fmt_date(inv['due_date']))}" if inv.get("due_date") else "is due")
+    subject = f"Reminder: {kes(due)} on invoice {inv['number']}"
+    body = (
+        p(f"Hi {e(name)}, a quick reminder that <strong style='font-weight:600'>{kes(due)}</strong> on invoice "
+          f"<span style='font-family:{MONO}'>{e(inv['number'])}</span> {when}.")
+        + (p(e(note).replace("\n", "<br>")) if note else "")
+        + details([
+            ("Invoice", f'<span style="font-family:{MONO}">{e(inv["number"])}</span>'),
+            ("Total", kes(inv["total"])),
+            ("Paid so far", f"<span style='color:{GREEN}'>{kes(inv['paid'])}</span>" if inv.get("paid") else ""),
+            ("Balance", f"<strong style='font-weight:600'>{kes(due)}</strong>"),
+        ])
+        + buttons(
+            button(f"Pay {kes(due)} with M-Pesa", pay_url),
+            button("Track your project", url(f"/track?code={inv['project_code']}"), primary=False) if inv.get("project_code") else "",
+        )
+        + p("Already paid? Thank you, and please ignore this. If anything's unclear, just reply.", muted=True, size=14)
+    )
+    html = layout(preheader=f"{kes(due)} on invoice {inv['number']}. Pay with M-Pesa in a minute.",
+                  heading="A quick reminder" + ("." if not overdue else ", this one's overdue."), body=body)
+    text = plain(
+        f"Hi {name},", "", f"A quick reminder that {kes(due)} on invoice {inv['number']} {when.replace('<', '')}.",
+        *([note] if note else []), "", f"Pay with M-Pesa: {pay_url}", "", "Talk soon,", "Deon",
+    )
+    return subject, html, text
+
+
+def client_message(pr: dict, subject: str, message: str) -> tuple[str, str, str]:
+    """A note you write yourself to everyone on a project (e.g. 'please send the logo files')."""
+    name = first_name(pr["client_name"])
+    track = url(f"/track?code={pr['code']}")
+    body = (
+        p(f"Hi {e(name)},")
+        + "".join(p(e(para).replace("\n", "<br>")) for para in message.strip().split("\n\n") if para.strip())
+        + buttons(button("Open your project", track, primary=False))
+        + p("Just reply to this email with anything you need.", muted=True, size=14)
+    )
+    html = layout(preheader=message.strip()[:90], heading=subject, body=body)
+    text = plain(f"Hi {name},", "", message.strip(), "", f"Your project: {track}", "", "Talk soon,", "Deon")
+    return subject, html, text
+
+
+def team_invite(name: str, key: str, sections: list[str]) -> tuple[str, str, str]:
+    admin = url("/admin")
+    subject = "Your access to the Deon admin"
+    body = (
+        p(f"Hi {e(first_name(name))}, Deon has given you access to the admin dashboard.")
+        + p("You can work on: " + ", ".join(f"<strong style='font-weight:600'>{e(x)}</strong>" for x in sections) + ".", muted=True)
+        + code_box(key, "Your access key")
+        + p("Open the dashboard and paste this key. Keep it private: anyone with it can act on your behalf.", muted=True, size=14)
+        + buttons(button("Open the dashboard", admin))
+    )
+    html = layout(preheader="Your admin access key is inside.", heading="You're on the team.", body=body)
+    text = plain(f"Hi {first_name(name)},", "", "You now have access to the Deon admin.", f"Access key: {key}",
+                 f"Open: {admin}", "", "Keep the key private.")
+    return subject, html, text

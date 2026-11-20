@@ -103,6 +103,7 @@ class InvoiceOut(InvoicePublic):
     vat: int
     notes: str
     created_at: datetime
+    reminded_at: datetime | None = None
     project_code: str | None = None
 
 
@@ -256,3 +257,54 @@ class TrackOut(BaseModel):
     stages: list[dict]
     updates: list[UpdateOut]
     invoices: list[InvoicePublic]
+
+
+# ── Team ────────────────────────────────────────────────────────────────
+Section = Literal["projects", "money", "quotes", "payments", "reminders"]
+
+
+class TeamIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field("", max_length=200)
+    access: list[Section] = Field(min_length=1)
+    send_email: bool = False  # email them their key
+
+
+class TeamPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=120)
+    access: list[Section] | None = Field(None, min_length=1)
+    active: bool | None = None
+
+
+class TeamOut(Out):
+    id: int
+    name: str
+    email: str
+    access: list[str]
+    key_hint: str
+    active: bool
+    created_at: datetime
+    last_seen_at: datetime | None
+
+
+# ── Reminders ───────────────────────────────────────────────────────────
+class PaymentReminderIn(BaseModel):
+    invoices: list[str] = Field(min_length=1, max_length=50)
+    note: str = Field("", max_length=2000)
+
+
+class MessageIn(BaseModel):
+    projects: list[str] = Field(min_length=1, max_length=50)
+    subject: str = Field(min_length=1, max_length=160)
+    message: str = Field(min_length=1, max_length=5000)
+
+
+class ReminderOut(Out):
+    kind: str
+    subject: str
+    recipients: list[str]
+    invoice_number: str | None
+    project_code: str | None
+    client_name: str
+    sent_by: str
+    created_at: datetime

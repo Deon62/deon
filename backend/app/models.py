@@ -126,6 +126,7 @@ class Invoice(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # last payment reminder
 
     project: Mapped[Project | None] = relationship(back_populates="invoices")
     payments: Mapped[list["Payment"]] = relationship(back_populates="invoice")
@@ -179,3 +180,45 @@ class Payment(Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     invoice: Mapped[Invoice | None] = relationship(back_populates="payments")
+
+
+# Parts of the admin a team member can be given. The owner (ADMIN_KEY) always has all of them, plus Team.
+SECTIONS: dict[str, str] = {
+    "projects": "Projects",
+    "money": "Pending amounts",
+    "quotes": "Quotes",
+    "payments": "Payments",
+    "reminders": "Reminders",
+}
+
+
+class TeamMember(Base):
+    """Someone you let into the admin (e.g. a PA) with their own key and only the sections you allow."""
+
+    __tablename__ = "team_members"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    email: Mapped[str] = mapped_column(String(200), default="")
+    access: Mapped[list] = mapped_column(JSON, default=list)  # keys of SECTIONS
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # sha256 of their key
+    key_hint: Mapped[str] = mapped_column(String(8), default="")  # last 4 characters, to tell keys apart
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Reminder(Base):
+    """A log of reminder emails sent from the admin."""
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20))  # payment, message
+    subject: Mapped[str] = mapped_column(String(200))
+    recipients: Mapped[list] = mapped_column(JSON, default=list)
+    invoice_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    project_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    client_name: Mapped[str] = mapped_column(String(120), default="")
+    sent_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
