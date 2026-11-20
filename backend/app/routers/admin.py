@@ -17,6 +17,7 @@ from ..demo import DEMO_CODE, seed_demo
 from ..models import SECTIONS, Invoice, Payment, Project, ProjectUpdate, Quote, Reminder, TeamMember
 from .public import mark_success
 from ..schemas import (
+    DefaulterIn,
     InvoiceIn,
     ManualPaymentIn,
     InvoiceOut,
@@ -146,7 +147,7 @@ def overview(request: Request, db: Session = Depends(get_db)) -> dict:
 
     if a.can("money") or a.can("payments"):
         invoices = db.scalars(select(Invoice).options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
-        outstanding = sorted((i for i in invoices if i.balance > 0), key=lambda i: (i.due_date or date.max, i.created_at))
+        outstanding = sorted((i for i in invoices if i.balance > 0), key=lambda i: (not i.defaulter, i.due_date or date.max, i.created_at))
         paid = db.scalars(select(Payment).where(Payment.status == "success").order_by(Payment.paid_at.desc())).all()
         # Collected per month for the last 6 months, oldest first.
         months = []
@@ -162,6 +163,8 @@ def overview(request: Request, db: Session = Depends(get_db)) -> dict:
             "outstanding_count": len(outstanding),
             "overdue_total": sum(i.balance for i in outstanding if i.due_date and i.due_date < today),
             "overdue_count": sum(1 for i in outstanding if i.due_date and i.due_date < today),
+            "defaulter_total": sum(i.balance for i in outstanding if i.defaulter),
+            "defaulter_count": sum(1 for i in outstanding if i.defaulter),
             "collected_month": series[-1]["amount"],
             "collected_last_month": series[-2]["amount"],
             "collected_total": sum(p.amount for p in paid),
@@ -328,6 +331,21 @@ def record_payment(number: str, body: ManualPaymentIn, bg: BackgroundTasks, db: 
     if not inv:
         raise HTTPException(404, "Invoice not found.")
     _record(db, inv, body.amount, body.method, body.reference, bg, email_client=body.send_receipt)
+    return _invoice_out(inv)
+
+
+@router.put("/invoices/{number}/defaulter", response_model=InvoiceOut)
+def set_defaulter(number: str, body: DefaulterIn, db: Session = Depends(get_db)):
+    """Mark (or clear) a client who has kept a balance unpaid for too long."""
+    inv = db.scalar(select(Invoice).where(Invoice.number == number.upper())
+                    .options(selectinload(Invoice.payments), selectinload(Invoice.project)))
+    if not inv:
+        raise HTTPException(404, "Invoice not found.")
+    if body.defaulter and not inv.balance:
+        raise HTTPException(409, "This invoice is paid in full.")
+    inv.defaulted_at = (inv.defaulted_at or datetime.now(timezone.utc)) if body.defaulter else None
+    inv.default_note = body.note.strip() if body.defaulter else ""
+    db.commit()
     return _invoice_out(inv)
 
 

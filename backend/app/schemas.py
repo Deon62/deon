@@ -84,6 +84,11 @@ class InvoicePublic(Out):
     due_date: date | None
 
 
+class DefaulterIn(BaseModel):
+    defaulter: bool
+    note: str = Field("", max_length=300)
+
+
 class ManualPaymentIn(BaseModel):
     """A payment made outside the site (cash, bank transfer, M-Pesa sent directly)."""
 
@@ -104,6 +109,9 @@ class InvoiceOut(InvoicePublic):
     notes: str
     created_at: datetime
     reminded_at: datetime | None = None
+    defaulted_at: datetime | None = None
+    default_note: str = ""
+    defaulter: bool = False
     project_code: str | None = None
 
 
@@ -227,6 +235,7 @@ class ProjectOut(Out):
     invoiced: int = 0
     paid: int = 0
     balance: int = 0
+    defaulted: bool = False
     summary: str
     stage: str
     status: str

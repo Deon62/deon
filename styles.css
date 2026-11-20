@@ -24,6 +24,8 @@
   --mint:       #9FE0C1;
   --amber:      #B7791F;
   --red:        #B42318;
+  --wine:       #7A1E48;   /* defaulters: long-unpaid balances */
+  --wine-soft:  #F7EAF0;
 
   --font-sans:  'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:  ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
@@ -739,6 +741,17 @@ button.adm-stat:hover { border-color: var(--ink); }
 .adm-card.status-completed .adm-bar i { background: var(--mint); }
 .adm-card.status-overdue { border-left: 3px solid var(--red); }
 .adm-card.status-new { border-left: 3px solid var(--ink); }
+.adm-card.status-defaulter { border-left: 5px solid var(--wine); background: linear-gradient(90deg, var(--wine-soft), var(--white) 60%); }
+.adm-card.status-defaulter .adm-card-meta strong { color: var(--wine); }
+.adm-wine { color: var(--wine); font-size: 13px; font-weight: 600; }
+.adm-tag.defaulter { background: var(--wine); color: var(--white); }
+.adm-default-note { font-size: 13px; color: var(--wine); margin-top: 6px; }
+.adm-default-hint { font-size: 13px; color: var(--red); margin-top: 6px; }
+.adm-default-hint .adm-link { font-size: 13px; color: var(--wine); font-weight: 600; }
+.adm-row-item.is-defaulter { margin: 0 -12px; padding-left: 12px; padding-right: 12px; background: var(--wine-soft); box-shadow: inset 4px 0 0 var(--wine); border-bottom-color: var(--white); }
+.adm-row-item.is-defaulter > .adm-right > strong { color: var(--wine); }
+.rem-row.is-defaulter { background: var(--wine-soft); box-shadow: inset 4px 0 0 var(--wine); }
+.rem-row.is-defaulter.on { background: #EFD9E3; }
 .adm-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .adm-status { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
 .adm-status select { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); color: var(--ink); }
@@ -807,12 +820,15 @@ button.adm-stat:hover { border-color: var(--ink); }
 .ov-big { font-size: clamp(36px, 4vw, 52px); font-weight: 300; letter-spacing: -0.04em; line-height: 1.05; }
 .ov-hero p { font-size: 14px; color: rgba(255,255,255,0.7); }
 .ov-hot { color: #FFB4A9; }
+.ov-bad { color: #E9A6C6; }
 .ov-split { display: flex; gap: 2px; height: 6px; margin-top: 14px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.12); }
 .ov-split i { display: block; height: 100%; background: var(--mint); }
 .ov-split i.late { background: #F08A7B; }
+.ov-split i.bad { background: #C2588A; }
 .ov-split-key { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: rgba(255,255,255,0.7); }
 .ov-split-key b { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; background: var(--mint); }
 .ov-split-key b.late { background: #F08A7B; }
+.ov-split-key b.bad { background: #C2588A; }
 .ov-hero-actions { display: flex; align-items: center; gap: 18px; margin-top: 14px; position: relative; z-index: 1; }
 .ov-btn { background: var(--white); border-color: var(--white); color: var(--ink); }
 .ov-btn:hover { background: var(--mint); border-color: var(--mint); }

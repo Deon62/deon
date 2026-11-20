@@ -93,6 +93,10 @@ class Project(Base):
     def balance(self) -> int:
         return sum(i.balance for i in self.invoices)
 
+    @property
+    def defaulted(self) -> bool:
+        return any(i.defaulter for i in self.invoices)
+
 
 class ProjectUpdate(Base):
     __tablename__ = "project_updates"
@@ -127,6 +131,9 @@ class Invoice(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # last payment reminder
+    # Set when you mark the client a defaulter (long overdue). Cleared by you; only shown while a balance remains.
+    defaulted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    default_note: Mapped[str] = mapped_column(String(300), default="", server_default="")
 
     project: Mapped[Project | None] = relationship(back_populates="invoices")
     payments: Mapped[list["Payment"]] = relationship(back_populates="invoice")
@@ -147,6 +154,10 @@ class Invoice(Base):
     @property
     def balance(self) -> int:
         return max(0, self.total - self.paid)
+
+    @property
+    def defaulter(self) -> bool:
+        return bool(self.defaulted_at) and self.balance > 0
 
     @property
     def status(self) -> str:

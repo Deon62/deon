@@ -242,6 +242,14 @@
     </form>
   </template>
 
+  <template id="defaultTpl">
+    <form class="form adm-inline" novalidate>
+      <p class="adm-small"><span data-why></span> Marking them a defaulter colours this balance differently everywhere in the admin, so it stands out. The client isn't told.</p>
+      <div class="field"><label>Note <span class="opt">(optional, only you see it)</span></label><input name="note" maxlength="300" placeholder="Promised to pay by end of October" /></div>
+      <div><button class="btn btn-sm btn-danger" type="submit">Mark as defaulter</button></div>
+    </form>
+  </template>
+
   <template id="recordTpl">
     <form class="form adm-inline" novalidate>
       <div class="form-row">
@@ -268,7 +276,12 @@
     const empty = (what) => `<p class="muted adm-empty">${what}</p>`;
     const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok); } catch { toast(text); } };
     const isOverdue = (i) => i.balance && i.due_date && new Date(i.due_date) < new Date(new Date().toDateString());
-    const dueText = (i) => !i.balance ? 'Paid' : i.due_date ? (isOverdue(i) ? `Overdue since ${fmtDate(i.due_date)}` : `Due ${fmtDate(i.due_date)}`) : 'Due on receipt';
+    /* A client who has kept a balance this long is suggested as a defaulter. */
+    const LONG = 30;
+    const daysLate = (i) => i.balance && i.due_date ? Math.max(0, Math.floor((new Date(new Date().toDateString()) - new Date(i.due_date + 'T00:00')) / 864e5)) : 0;
+    const isDefaulter = (i) => !!(i.balance && i.defaulted_at);
+    const lateText = (n) => n === 1 ? '1 day late' : `${n} days late`;
+    const dueText = (i) => isDefaulter(i) ? `Defaulter${daysLate(i) ? ' · ' + lateText(daysLate(i)) : ''}` : !i.balance ? 'Paid' : i.due_date ? (isOverdue(i) ? `Overdue since ${fmtDate(i.due_date)}` : `Due ${fmtDate(i.due_date)}`) : 'Due on receipt';
     const ago = (d) => {
       const s = (Date.now() - new Date(d)) / 1000;
       if (s < 90) return 'just now';
@@ -277,6 +290,7 @@
       if (s < 86400 * 7) { const n = Math.round(s / 86400); return n === 1 ? 'yesterday' : `${n} days ago`; }
       return fmtDate(d);
     };
+    const dueClass = (i) => isDefaulter(i) ? 'adm-wine' : isOverdue(i) ? 'adm-red' : 'muted';
     const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const parseEmails = (v) => v.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
     const emailsOk = (input) => { const ok = parseEmails(input.value).every((x) => EMAIL.test(x)); input.closest('.field').classList.toggle('invalid', !ok); return ok; };
@@ -321,9 +335,9 @@
 
     /* ── Overview ── */
     const invoiceRow = (i) => `
-      <div class="adm-row-item">
+      <div class="adm-row-item${isDefaulter(i) ? ' is-defaulter' : ''}">
         <div><strong>${esc(i.client_name)}</strong><span class="muted mono">${esc(i.number)}</span></div>
-        <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
+        <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${dueClass(i)}">${dueText(i)}</span></div>
       </div>`;
     const short = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n);
     const drawChart = (series) => {
@@ -353,11 +367,12 @@
       if ('outstanding_total' in o) {
         $('#sPending').textContent = kes(o.outstanding_total);
         $('#sPendingSub').innerHTML = o.outstanding_count
-          ? `${o.outstanding_count} invoice${o.outstanding_count === 1 ? '' : 's'} open${o.overdue_count ? ` · <span class="ov-hot">${o.overdue_count} overdue</span>` : ''}`
+          ? `${o.outstanding_count} invoice${o.outstanding_count === 1 ? '' : 's'} open${o.overdue_count ? ` · <span class="ov-hot">${o.overdue_count} overdue</span>` : ''}${o.defaulter_count ? ` · <span class="ov-bad">${o.defaulter_count} defaulter${o.defaulter_count === 1 ? '' : 's'}</span>` : ''}`
           : 'Everyone is paid up.';
-        const late = o.overdue_total, onTime = o.outstanding_total - late, tot = o.outstanding_total || 1;
-        $('#sSplit').innerHTML = o.outstanding_total ? `<i class="late" style="width:${late / tot * 100}%"></i><i style="width:${onTime / tot * 100}%"></i>` : '';
-        $('#sSplitKey').innerHTML = o.outstanding_total ? `<span><b class="late"></b>Overdue ${kes(late)}</span><span><b></b>Not yet due ${kes(onTime)}</span>` : '';
+        const bad = o.defaulter_total, late = Math.max(0, o.overdue_total - bad), onTime = Math.max(0, o.outstanding_total - bad - late), tot = o.outstanding_total || 1;
+        const seg = (cls, v) => v ? `<i class="${cls}" style="width:${v / tot * 100}%"></i>` : '';
+        $('#sSplit').innerHTML = o.outstanding_total ? seg('bad', bad) + seg('late', late) + seg('', onTime) : '';
+        $('#sSplitKey').innerHTML = o.outstanding_total ? (bad ? `<span><b class="bad"></b>Defaulters ${kes(bad)}</span>` : '') + `<span><b class="late"></b>Overdue ${kes(late)}</span><span><b></b>Not yet due ${kes(onTime)}</span>` : '';
         $('#sMonth').textContent = kes(o.collected_month);
         const prev = o.collected_last_month;
         $('#sDelta').textContent = prev ? `${o.collected_month >= prev ? '+' : '−'}${Math.abs(Math.round((o.collected_month - prev) / prev * 100))}% vs last month` : o.collected_month ? 'First money in a while' : 'Nothing yet this month';
@@ -400,9 +415,9 @@
     const projectCard = (p) => {
       const demo = p.code === DEMO;
       return `
-      <article class="adm-card status-${p.status}${demo ? ' is-demo' : ''}" data-code="${esc(p.code)}">
+      <article class="adm-card status-${p.status}${demo ? ' is-demo' : ''}${p.defaulted ? ' status-defaulter' : ''}" data-code="${esc(p.code)}">
         <header>
-          <div><h3>${esc(p.title)}${demo ? ' <span class="adm-tag">Sample</span>' : ''}</h3><p class="muted">${esc(p.client_name)} · ${[p.client_email, ...(p.extra_emails || [])].map(esc).join(', ')}</p>
+          <div><h3>${esc(p.title)}${demo ? ' <span class="adm-tag">Sample</span>' : ''}${p.defaulted ? ' <span class="adm-tag defaulter">Defaulter</span>' : ''}</h3><p class="muted">${esc(p.client_name)} · ${[p.client_email, ...(p.extra_emails || [])].map(esc).join(', ')}</p>
             ${p.invoiced ? `<p class="adm-small">${p.price ? `Price ${kes(p.price)} · ` : `Invoiced ${kes(p.invoiced)} · `}<span class="adm-green">paid ${kes(p.paid)}</span>${p.balance ? ` · <strong>${kes(p.balance)} pending</strong>` : ' · paid up'}</p>` : ''}
             ${demo ? '<p class="adm-small muted">Anyone can open this on /track with the demo email. Reset it to bring back the full update history with fresh dates.</p>' : ''}</div>
           <div class="adm-card-meta"><span class="mono">${esc(p.code)}</span><strong>${p.progress}%</strong><span class="muted">${STAGES[p.stage] || p.stage}</span></div>
@@ -595,12 +610,14 @@
     });
 
     const moneyCard = (i) => `
-      <article class="adm-card ${i.balance ? (isOverdue(i) ? 'status-overdue' : '') : 'status-completed'}" data-number="${esc(i.number)}">
+      <article class="adm-card ${isDefaulter(i) ? 'status-defaulter' : i.balance ? (isOverdue(i) ? 'status-overdue' : '') : 'status-completed'}" data-number="${esc(i.number)}">
         <header>
-          <div><h3>${esc(i.client_name)}${i.client_company ? ` <span class="muted">· ${esc(i.client_company)}</span>` : ''}</h3>
+          <div><h3>${esc(i.client_name)}${i.client_company ? ` <span class="muted">· ${esc(i.client_company)}</span>` : ''}${isDefaulter(i) ? ' <span class="adm-tag defaulter">Defaulter</span>' : ''}</h3>
             <p class="muted"><span class="mono">${esc(i.number)}</span>${i.project_code ? ` · <span class="mono">${esc(i.project_code)}</span>` : ''}${i.client_email ? ' · ' + esc(i.client_email) : ''}</p>
-            ${i.balance && i.reminded_at ? `<p class="adm-small muted">Reminded ${ago(i.reminded_at)}</p>` : ''}</div>
-          <div class="adm-card-meta"><span class="muted">${i.balance ? 'Pending' : 'Paid'}</span><strong>${kes(i.balance || i.total)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
+            ${i.balance && i.reminded_at ? `<p class="adm-small muted">Reminded ${ago(i.reminded_at)}</p>` : ''}
+            ${isDefaulter(i) ? `<p class="adm-default-note">Marked ${fmtDate(i.defaulted_at)}${i.default_note ? ': ' + esc(i.default_note) : ''}</p>`
+              : daysLate(i) >= LONG ? `<p class="adm-default-hint">${lateText(daysLate(i))}. <button type="button" class="adm-link" data-act="default">Mark as defaulter</button></p>` : ''}</div>
+          <div class="adm-card-meta"><span class="muted">${i.balance ? 'Pending' : 'Paid'}</span><strong>${kes(i.balance || i.total)}</strong><span class="${dueClass(i)}">${dueText(i)}</span></div>
         </header>
         <div class="adm-lines">${i.lines.map((l) => `<div><span>${esc(l.desc)}</span><span>${kes(l.amount)}</span></div>`).join('')}
           <div class="adm-lines-total"><span>Total ${kes(i.total)}${i.paid ? ` · paid ${kes(i.paid)}` : ''}</span><span></span></div></div>
@@ -608,7 +625,8 @@
           ${i.balance ? `<button type="button" class="adm-link" data-act="send">${i.paid ? 'Email balance' : 'Email invoice'}</button>
           ${Admin.can('reminders') ? '<button type="button" class="adm-link" data-act="remind">Send reminder</button>' : ''}
           <button type="button" class="adm-link" data-copy="${esc(payLink(i.number))}">Copy pay link</button>
-          <button type="button" class="adm-link" data-act="record">Record a payment</button>` : ''}
+          <button type="button" class="adm-link" data-act="record">Record a payment</button>
+          ${isDefaulter(i) ? '<button type="button" class="adm-link" data-act="undefault">Clear defaulter</button>' : daysLate(i) >= LONG ? '' : '<button type="button" class="adm-link" data-act="default">Mark as defaulter</button>'}` : ''}
           ${i.paid ? '' : '<button type="button" class="adm-link danger" data-act="delete">Delete</button>'}
         </div>
         <div class="adm-slot"></div>
@@ -618,14 +636,16 @@
       moneyFilter.update([
         { value: 'due', label: 'Pending', count: invoices.filter((i) => i.balance > 0).length },
         { value: 'overdue', label: 'Overdue', count: invoices.filter(isOverdue).length },
+        { value: 'defaulters', label: 'Defaulters', count: invoices.filter(isDefaulter).length },
         { value: 'paid', label: 'Paid', count: invoices.filter((i) => !i.balance).length },
         { value: 'all', label: 'All', count: invoices.length },
       ]);
-      const list = invoices.filter((i) => (mFilter === 'all' || (mFilter === 'due' ? i.balance > 0 : mFilter === 'overdue' ? isOverdue(i) : !i.balance))
-        && match(mQuery, i.client_name, i.client_company, i.number, i.project_code, i.client_email));
+      const list = invoices.filter((i) => (mFilter === 'all' || (mFilter === 'due' ? i.balance > 0 : mFilter === 'overdue' ? isOverdue(i) : mFilter === 'defaulters' ? isDefaulter(i) : !i.balance))
+        && match(mQuery, i.client_name, i.client_company, i.number, i.project_code, i.client_email))
+        .sort((a, b) => isDefaulter(b) - isDefaulter(a));
       const total = list.reduce((a, i) => a + i.balance, 0);
-      $('#moneyList').innerHTML = ((mFilter === 'due' || mFilter === 'overdue') && list.length ? `<p class="adm-sum">${list.length} ${mFilter === 'due' ? 'pending' : 'overdue'} · <strong>${kes(total)}</strong> to collect</p>` : '')
-        + (list.length ? list.map(moneyCard).join('') : empty(mQuery ? 'Nothing matches that search.' : mFilter === 'due' ? 'Nothing pending. Everyone is paid up.' : mFilter === 'overdue' ? 'Nothing overdue.' : 'Nothing here yet.'));
+      $('#moneyList').innerHTML = (['due', 'overdue', 'defaulters'].includes(mFilter) && list.length ? `<p class="adm-sum">${list.length} ${mFilter === 'due' ? 'pending' : mFilter} · <strong>${kes(total)}</strong> to collect</p>` : '')
+        + (list.length ? list.map(moneyCard).join('') : empty(mQuery ? 'Nothing matches that search.' : mFilter === 'due' ? 'Nothing pending. Everyone is paid up.' : mFilter === 'overdue' ? 'Nothing overdue.' : mFilter === 'defaulters' ? 'No defaulters. Good.' : 'Nothing here yet.'));
     };
     const loadMoney = async () => {
       if (!projects.length) loadProjects();
@@ -653,6 +673,27 @@
         return;
       }
       if (btn.dataset.act === 'remind') { if (await remindOne(inv)) loadMoney(); return; }
+      if (btn.dataset.act === 'undefault') {
+        if (!await confirmUI({ title: `Clear ${inv.client_name} as a defaulter?`, text: `${esc(inv.number)} goes back to a normal pending amount.`, ok: 'Clear' })) return;
+        try { await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}/defaulter`, { method: 'PUT', body: { defaulter: false } }); toast('Cleared'); loadMoney(); }
+        catch (err) { toast(err.message); }
+        return;
+      }
+      if (btn.dataset.act === 'default') {
+        toggleSlot(card, 'default', () => {
+          const f = $('#defaultTpl').content.firstElementChild.cloneNode(true);
+          $('[data-why]', f).textContent = daysLate(inv) ? `${kes(inv.balance)} is ${lateText(daysLate(inv))}.` : `${kes(inv.balance)} is still pending.`;
+          f.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            try {
+              await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}/defaulter`, { method: 'PUT', body: { defaulter: true, note: f.note.value.trim() } });
+              toast(`${inv.client_name} marked as a defaulter`); loadMoney();
+            } catch (err) { toast(err.message); }
+          });
+          return f;
+        });
+        return;
+      }
       if (btn.dataset.act === 'send') {
         btn.disabled = true;
         try { const r = await A(`/api/admin/invoices/${encodeURIComponent(inv.number)}/send`, { method: 'POST' }); toast(`Sent to ${r.to.join(', ')}`); }
@@ -685,21 +726,23 @@
       const due = invoices.filter((i) => i.balance > 0);
       remFilter.update([
         { value: 'overdue', label: 'Overdue', count: due.filter(isOverdue).length },
+        { value: 'defaulters', label: 'Defaulters', count: due.filter(isDefaulter).length },
         { value: 'due', label: 'All pending', count: due.length },
         { value: 'never', label: 'Never reminded', count: due.filter((i) => !i.reminded_at).length },
       ]);
-      const list = due.filter((i) => rFilter === 'due' || (rFilter === 'overdue' ? isOverdue(i) : !i.reminded_at));
+      const list = due.filter((i) => rFilter === 'due' || (rFilter === 'overdue' ? isOverdue(i) : rFilter === 'defaulters' ? isDefaulter(i) : !i.reminded_at))
+        .sort((a, b) => isDefaulter(b) - isDefaulter(a));
       picked = new Set([...picked].filter((n) => list.some((i) => i.number === n)));
       $('#remList').innerHTML = list.length ? `
         <label class="rem-row rem-all"><input type="checkbox" id="remAll" ${picked.size === list.length ? 'checked' : ''} /><span>Select all ${list.length}</span></label>`
         + list.map((i) => `
-        <label class="rem-row${picked.has(i.number) ? ' on' : ''}">
+        <label class="rem-row${picked.has(i.number) ? ' on' : ''}${isDefaulter(i) ? ' is-defaulter' : ''}">
           <input type="checkbox" value="${esc(i.number)}" ${picked.has(i.number) ? 'checked' : ''} ${i.client_email || i.project_code ? '' : 'disabled'} />
           <div><strong>${esc(i.client_name)}</strong><span class="muted"><span class="mono">${esc(i.number)}</span>${i.client_email ? ' · ' + esc(i.client_email) : i.project_code ? '' : ' · no email'}</span></div>
-          <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${isOverdue(i) ? 'adm-red' : 'muted'}">${dueText(i)}</span></div>
+          <div class="adm-right"><strong>${kes(i.balance)}</strong><span class="${dueClass(i)}">${dueText(i)}</span></div>
           <div class="adm-right rem-last"><span class="muted">${i.reminded_at ? 'Reminded ' + ago(i.reminded_at) : 'Not reminded yet'}</span></div>
         </label>`).join('')
-        : empty(rFilter === 'overdue' ? 'Nothing overdue. Nice.' : rFilter === 'never' ? 'Every pending invoice has had a reminder.' : 'Nothing pending. Everyone is paid up.');
+        : empty(rFilter === 'overdue' ? 'Nothing overdue. Nice.' : rFilter === 'defaulters' ? 'No defaulters.' : rFilter === 'never' ? 'Every pending invoice has had a reminder.' : 'Nothing pending. Everyone is paid up.');
       const sum = list.filter((i) => picked.has(i.number)).reduce((a, i) => a + i.balance, 0);
       $('#remSend').hidden = !list.length;
       $('#remPicked').textContent = picked.size ? `${picked.size} selected · ${kes(sum)}` : 'Pick who to remind';
