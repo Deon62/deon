@@ -470,6 +470,7 @@
           <div class="adm-actions">
             <button type="button" class="adm-link" data-act="update">Post update</button>
             ${demo ? '' : `<button type="button" class="adm-link" data-act="edit">Edit</button>
+            ${Admin.can('emails') ? '<button type="button" class="adm-link" data-act="email">Email</button>' : ''}
             ${Admin.can('money') ? `<button type="button" class="adm-link" data-act="charge">${p.balance ? 'New invoice' : 'Request payment'}</button>` : ''}`}
             <button type="button" class="adm-link" data-act="copy">Copy tracking link</button>
             <a class="adm-link" href="/track?code=${encodeURIComponent(p.code)}${demo ? '&demo=1' : ''}" target="_blank">View as client</a>
@@ -557,6 +558,7 @@
       const act = btn.dataset.act;
       if (act === 'copy') return copy(`Track your project at ${trackLink(p.code)} using code ${p.code} and your email.`, 'Tracking message copied');
       if (act === 'charge') { go('money'); prefillCharge(p.code); return; }
+      if (act === 'email') { emailTo([{ email: p.client_email, name: p.client_name }, ...(p.extra_emails || [])]); return; }
       if (act === 'delete') {
         const money = p.invoiced ? ` Its invoices (${kes(p.invoiced)}, ${kes(p.paid)} paid) and receipts are kept, just no longer linked to it.` : '';
         if (!await confirmUI({ title: `Delete ${p.title}?`, text: `The project, its ${p.updates.length} update${p.updates.length === 1 ? '' : 's'} and its tracking page are removed. The client can no longer open it.${esc(money)} This can't be undone.`, ok: 'Delete project', danger: true })) return;
@@ -907,8 +909,10 @@
       $('#rcpt').closest('.field').classList.remove('invalid');
       if (!$('#previewBox').hidden) schedulePreview();
     };
-    const emailTo = (emails) => {
-      emails.forEach((x) => addRcpt(x));
+    /* Opens the Emails page with these people in To. Each item is an email or { email, name }. */
+    const emailTo = async (people) => {
+      if (!clients.length) await loadClients();
+      people.forEach((x) => typeof x === 'string' ? addRcpt(x) : addRcpt(x.email, x.name));
       go('emails');
       renderRcpt();
       (mf.subject.value ? mf.message : mf.subject).focus();
