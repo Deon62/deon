@@ -12,16 +12,20 @@ const ICON = {
   reminders: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   quotes: '<path d="M4 4h16v12H8l-4 4z"/>',
   payments: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  clients: '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c.8-4 3.8-6.2 7.5-6.2s6.7 2.2 7.5 6.2"/>',
+  emails: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/>',
   team: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.6.7 2.6 2.4 3 5.2"/>',
 };
 
 /* view, label, section a team member needs (null = everyone, 'owner' = only you), href for real pages */
 const ADMIN_NAV = [
   ['overview', 'Overview', null],
+  ['clients', 'Clients', 'clients'],
   ['projects', 'Projects', 'projects'],
   ['money', 'Pending amounts', 'money'],
   ['invoice', 'Invoice builder', 'money', '/invoice'],
   ['reminders', 'Reminders', 'reminders'],
+  ['emails', 'Emails', 'emails'],
   ['quotes', 'Quotes', 'quotes'],
   ['payments', 'Payments', 'payments'],
   ['team', 'Team', 'owner'],

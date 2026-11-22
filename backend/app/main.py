@@ -26,6 +26,7 @@ def add_missing_columns() -> None:
         "payments": {"method": "VARCHAR(40) NOT NULL DEFAULT 'M-Pesa'"},
         "invoices": {"reminded_at": "TIMESTAMP WITH TIME ZONE", "defaulted_at": "TIMESTAMP WITH TIME ZONE",
                      "default_note": "VARCHAR(300) NOT NULL DEFAULT ''"},
+        "reminders": {"body": "TEXT NOT NULL DEFAULT ''"},
     }
     insp = inspect(engine)
     with engine.begin() as conn:

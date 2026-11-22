@@ -14,10 +14,12 @@ from .. import emails
 from ..config import get_settings
 from ..db import get_db
 from ..demo import DEMO_CODE, seed_demo
-from ..models import SECTIONS, Invoice, Payment, Project, ProjectUpdate, Quote, Reminder, TeamMember
+from ..models import SECTIONS, Invoice, Payment, Project, ProjectUpdate, Quote, Reminder, TeamMember, unique_emails
 from .public import mark_success
 from ..schemas import (
     DefaulterIn,
+    EmailIn,
+    EmailPreviewIn,
     InvoiceIn,
     ManualPaymentIn,
     InvoiceOut,
@@ -65,7 +67,9 @@ def _needs(path: str, method: str) -> set[str] | None:
         return {"projects"}
     if part == "invoices":
         return {"money"}
-    if part in ("quotes", "payments", "reminders"):
+    if part == "clients":
+        return {"clients", "emails"}  # the email composer picks from the client list
+    if part in ("quotes", "payments", "reminders", "emails"):
         return {part}
     return set()  # team, email-test
 
@@ -204,8 +208,12 @@ def overview(request: Request, db: Session = Depends(get_db)) -> dict:
         feed += [{"kind": "quote", "at": _aware(q.created_at).isoformat(), "title": f"Quote request from {q.name}",
                   "detail": q.company or q.email} for q in qs]
     if a.can("reminders"):
-        rs = db.scalars(select(Reminder).order_by(Reminder.created_at.desc()).limit(4)).all()
+        rs = db.scalars(select(Reminder).where(Reminder.kind != "email").order_by(Reminder.created_at.desc()).limit(4)).all()
         feed += [{"kind": "reminder", "at": _aware(r.created_at).isoformat(), "title": f"Reminder to {r.client_name}",
+                  "detail": r.subject} for r in rs]
+    if a.can("emails"):
+        rs = db.scalars(select(Reminder).where(Reminder.kind == "email").order_by(Reminder.created_at.desc()).limit(4)).all()
+        feed += [{"kind": "email", "at": _aware(r.created_at).isoformat(), "title": f"Email to {r.client_name or r.recipients[0]}",
                   "detail": r.subject} for r in rs]
     out["activity"] = sorted(feed, key=lambda f: f["at"], reverse=True)[:8]
     return out
@@ -526,6 +534,109 @@ def send_messages(body: MessageIn, request: Request, bg: BackgroundTasks, db: Se
         sent.append(p.code)
     db.commit()
     return {"sent": sent, "skipped": sorted(codes - set(sent))}
+
+
+# ── Clients ─────────────────────────────────────────────────────────────
+def _client_book(db: Session) -> dict[str, dict]:
+    """Everyone you've dealt with, one entry per email address, gathered from projects, invoices and quotes."""
+    book: dict[str, dict] = {}
+
+    def entry(email: str, name: str = "", company: str = "", phone: str = "", at: datetime | None = None) -> dict | None:
+        email = (email or "").strip()
+        if "@" not in email:
+            return None
+        c = book.setdefault(email.lower(), {
+            "email": email, "name": "", "company": "", "phone": "", "projects": [], "quotes": [], "invoices": 0,
+            "invoiced": 0, "paid": 0, "balance": 0, "defaulter": False, "team_of": "", "first_seen": None,
+            "last_activity": None, "last_emailed_at": None})
+        c["name"] = c["name"] or (name or "").strip()
+        c["company"] = c["company"] or (company or "").strip()
+        c["phone"] = c["phone"] or (phone or "").strip()
+        if at:
+            at = _aware(at)
+            c["first_seen"] = min(c["first_seen"] or at, at)
+            c["last_activity"] = max(c["last_activity"] or at, at)
+        return c
+
+    projects = db.scalars(select(Project).where(Project.code != DEMO_CODE)).all()
+    for p in projects:
+        info = {"code": p.code, "title": p.title, "status": p.status, "stage": p.stage, "progress": p.progress}
+        main = entry(p.client_email, p.client_name, at=p.updated_at or p.created_at)
+        if main:
+            main["projects"].append(info)
+        for x in p.extra_emails or []:
+            c = entry(x, at=p.updated_at or p.created_at)
+            if c and c is not main:
+                c["projects"].append(info)
+                c["team_of"] = c["team_of"] or p.client_name
+    invoices = db.scalars(select(Invoice).options(selectinload(Invoice.payments), selectinload(Invoice.project))).all()
+    for inv in invoices:
+        if inv.project and inv.project.code == DEMO_CODE:
+            continue
+        c = entry(inv.client_email or (inv.project.client_email if inv.project else ""), inv.client_name,
+                  inv.client_company, inv.client_phone, inv.created_at)
+        if c:
+            c["invoices"] += 1
+            c["invoiced"] += inv.total
+            c["paid"] += inv.paid
+            c["balance"] += inv.balance
+            c["defaulter"] = c["defaulter"] or inv.defaulter
+    for q in db.scalars(select(Quote)).all():
+        c = entry(q.email, q.name, q.company, q.phone, q.created_at)
+        if c:
+            c["quotes"].append({"number": q.number, "status": q.status})
+    for r in db.scalars(select(Reminder).order_by(Reminder.created_at)).all():
+        for x in r.recipients or []:
+            if (c := book.get(str(x).lower())):
+                c["last_emailed_at"] = _aware(r.created_at)
+    return book
+
+
+@router.get("/clients")
+def list_clients(request: Request, db: Session = Depends(get_db)) -> list[dict]:
+    """One row per email address. Money is left out for team members without access to it."""
+    money = request.state.actor.can("money")
+    rows = list(_client_book(db).values())
+    for c in rows:
+        c["name"] = c["name"] or c["email"].split("@")[0]
+        if not money:
+            c.update(invoiced=0, paid=0, balance=0, defaulter=False)
+        for k in ("first_seen", "last_activity", "last_emailed_at"):
+            c[k] = c[k].isoformat() if c[k] else None
+    return sorted(rows, key=lambda c: c["last_activity"] or "", reverse=True)
+
+
+# ── Emails ──────────────────────────────────────────────────────────────
+@router.get("/emails", response_model=list[ReminderOut])
+def list_emails(db: Session = Depends(get_db)):
+    return db.scalars(select(Reminder).where(Reminder.kind == "email").order_by(Reminder.created_at.desc()).limit(200)).all()
+
+
+@router.post("/emails/preview")
+def preview_email(body: EmailPreviewIn) -> dict:
+    subject, html, _ = emails.custom_email(body.name, body.subject.strip() or "Your subject", body.message or "Your message.")
+    return {"subject": subject, "html": html}
+
+
+@router.post("/emails")
+def send_emails(body: EmailIn, request: Request, bg: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
+    """Your own email. Each person gets their own copy (nobody sees who else it went to), greeted by name when known."""
+    if not emails.enabled():
+        raise HTTPException(503, "Emails are off: set RESEND_API_KEY on the server.")
+    who = request.state.actor.name
+    book = _client_book(db)
+    to = unique_emails(str(x) for x in body.to)
+    subject = body.subject.strip()
+    for addr in to:
+        c = book.get(addr.lower())
+        name = c["name"] if c else ""
+        _, html, text = emails.custom_email(name, subject, body.message)
+        bg.add_task(emails.send, addr, subject, html, text)
+        db.add(Reminder(kind="email", subject=subject, recipients=[addr], client_name=name or addr,
+                        project_code=c["projects"][0]["code"] if c and c["projects"] else None,
+                        sent_by=who, body=body.message.strip()))
+    db.commit()
+    return {"sent": to}
 
 
 # ── Team (owner only) ───────────────────────────────────────────────────

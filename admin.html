@@ -82,6 +82,13 @@
         </div>
       </section>
 
+      <!-- CLIENTS -->
+      <section class="adm-view" data-pane="clients" hidden>
+        <div class="adm-toolbar"><div id="clientFilter"></div><input type="search" class="adm-search" id="clientSearch" placeholder="Search name, email or company" aria-label="Search clients" /></div>
+        <div class="cl-bar" id="clBar" hidden><span id="clPicked"></span><div class="adm-actions"><button type="button" class="adm-link" id="clClear">Clear</button><button type="button" class="btn btn-ink btn-sm" id="clEmail">Email selected</button></div></div>
+        <div class="adm-box"><div id="clientList" class="cl-table"></div></div>
+      </section>
+
       <!-- PROJECTS -->
       <section class="adm-view" data-pane="projects" hidden>
         <div class="adm-split">
@@ -177,6 +184,41 @@
           <div class="adm-box">
             <div class="adm-box-head"><h2>Sent</h2></div>
             <div id="remHistory"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EMAILS -->
+      <section class="adm-view" data-pane="emails" hidden>
+        <div class="adm-split">
+          <form class="adm-box form" id="mailForm" novalidate>
+            <div class="adm-box-head"><h2>New email</h2></div>
+            <div class="field">
+              <label for="rcptInput">To</label>
+              <div class="rcpt-wrap">
+                <div class="rcpt" id="rcpt">
+                  <div class="rcpt-chips" id="rcptChips"></div>
+                  <input id="rcptInput" autocomplete="off" placeholder="Type a name or any email address" role="combobox" aria-expanded="false" aria-controls="rcptSuggest" />
+                </div>
+                <ul class="dd-menu rcpt-suggest" id="rcptSuggest" role="listbox" hidden></ul>
+              </div>
+              <div class="rcpt-quick"><span class="muted">Add</span><button type="button" class="adm-link" data-add="active">Active clients</button><button type="button" class="adm-link" data-add="owing">Clients who owe</button><button type="button" class="adm-link" data-add="all">Everyone</button><button type="button" class="adm-link" data-add="clear" hidden>Clear all</button></div>
+              <p class="field-hint">Each person gets their own copy, so nobody sees who else it went to.</p>
+            </div>
+            <div class="field"><label for="mail-subject">Subject</label><input id="mail-subject" name="subject" maxlength="160" placeholder="Office closed over the holidays" /></div>
+            <div class="field"><label for="mail-body">Message</label><textarea id="mail-body" name="message" class="mail-body" maxlength="10000" placeholder="Write it the way you'd say it. Leave a blank line between paragraphs."></textarea><p class="field-hint">It opens with “Hi” and their first name, and ends with your sign-off. Replies come to your inbox.</p></div>
+            <div class="mail-actions"><button type="button" class="btn btn-outline btn-sm" id="mailPreview">Preview</button><button class="btn btn-ink btn-sm" type="submit" id="mailSend">Send email</button></div>
+          </form>
+          <div class="mail-side">
+            <div class="adm-box" id="previewBox" hidden>
+              <div class="adm-box-head"><h2>Preview</h2><button type="button" class="adm-link" id="previewClose">Close</button></div>
+              <p class="muted adm-small" id="previewFor"></p>
+              <iframe class="mail-frame" id="previewFrame" title="Email preview" sandbox=""></iframe>
+            </div>
+            <div class="adm-box">
+              <div class="adm-box-head"><h2>Sent</h2></div>
+              <div id="mailHistory"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -316,9 +358,9 @@
     $('#today').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
     /* ── Views ── */
-    const TITLES = { overview: 'Overview', projects: 'Projects', money: 'Pending amounts', reminders: 'Reminders', quotes: 'Quote requests', payments: 'Payments', team: 'Team' };
-    const NEED = { overview: null, projects: 'projects', money: 'money', reminders: 'reminders', quotes: 'quotes', payments: 'payments', team: 'owner' };
-    const loaders = { overview: () => loadOverview(), projects: () => loadProjects(), money: () => loadMoney(), reminders: () => loadReminders(), quotes: () => loadQuotes(), payments: () => loadPayments(), team: () => loadTeam() };
+    const TITLES = { overview: 'Overview', clients: 'Clients', emails: 'Emails', projects: 'Projects', money: 'Pending amounts', reminders: 'Reminders', quotes: 'Quote requests', payments: 'Payments', team: 'Team' };
+    const NEED = { overview: null, clients: 'clients', emails: 'emails', projects: 'projects', money: 'money', reminders: 'reminders', quotes: 'quotes', payments: 'payments', team: 'owner' };
+    const loaders = { overview: () => loadOverview(), clients: () => loadClients(), emails: () => loadEmails(), projects: () => loadProjects(), money: () => loadMoney(), reminders: () => loadReminders(), quotes: () => loadQuotes(), payments: () => loadPayments(), team: () => loadTeam() };
     const go = (v) => {
       if (!TITLES[v] || !Admin.can(NEED[v])) v = 'overview';
       view = v;
@@ -358,7 +400,7 @@
       const show = (col) => { tip.textContent = col.dataset.tip; tip.hidden = false; const r = col.getBoundingClientRect(), p = el.getBoundingClientRect(); tip.style.left = (r.left - p.left + r.width / 2) + 'px'; };
       $$('.ov-col', el).forEach((c) => { c.addEventListener('mouseenter', () => show(c)); c.addEventListener('focus', () => show(c)); c.addEventListener('mouseleave', () => tip.hidden = true); c.addEventListener('blur', () => tip.hidden = true); });
     };
-    const FEED_ICON = { payment: ICON.payments, update: ICON.projects, quote: ICON.quotes, reminder: ICON.reminders };
+    const FEED_ICON = { payment: ICON.payments, update: ICON.projects, quote: ICON.quotes, reminder: ICON.reminders, email: ICON.emails };
     const stat = (label, value, sub, to) => { const goTo = to && Admin.can(NEED[to]) ? to : ''; return `<${goTo ? `button type="button" data-go="${goTo}"` : 'div'} class="adm-stat"><span>${label}</span><strong>${value}</strong><em>${sub}</em></${goTo ? 'button' : 'div'}>`; };
     const loadOverview = async () => {
       let o;
@@ -798,6 +840,195 @@
       const [inv] = await Promise.all([A('/api/admin/invoices').catch((e) => (toast(e.message), [])), loadProjects()]);
       invoices = inv;
       renderReminders(); renderMsgProjects(); loadHistory();
+    };
+
+    /* ── Clients ── */
+    let clients = [], cFilter = 'all', cQuery = '';
+    const clPicked = new Set();
+    const isActive = (c) => c.projects.some((p) => p.status === 'active');
+    const isLead = (c) => !c.projects.length && !c.invoices && c.quotes.length;
+    const CFILTERS = { all: ['All', () => true], active: ['Active projects', isActive], owing: ['Owe money', (c) => c.balance > 0], done: ['Past clients', (c) => c.projects.length && !isActive(c)], leads: ['Quotes only', isLead] };
+    const clientFilter = dropdown($('#clientFilter'), { label: 'Show', value: 'all', options: [{ value: 'all', label: 'All' }], onChange: (v) => { cFilter = v; renderClients(); } });
+    const clientMoney = (c) => c.balance ? `<strong class="${c.defaulter ? 'adm-wine' : ''}">${kes(c.balance)}</strong><span class="${c.defaulter ? 'adm-wine' : 'muted'}">${c.defaulter ? 'Defaulter' : 'pending'}</span>`
+      : c.paid ? `<strong>${kes(c.paid)}</strong><span class="muted">paid</span>` : '<span class="muted">No invoices</span>';
+    const clientWork = (c) => c.projects.length
+      ? c.projects.slice(0, 2).map((p) => `<span>${esc(p.title)}${p.status === 'active' ? '' : ` <em class="muted">· ${STATUS[p.status] || p.status}</em>`}</span>`).join('') + (c.projects.length > 2 ? `<span class="muted">+${c.projects.length - 2} more</span>` : '')
+      : c.quotes.length ? `<span class="muted">Quote ${esc(c.quotes[0].number)}</span>` : '<span class="muted">—</span>';
+    const renderClients = () => {
+      clientFilter.update(Object.entries(CFILTERS).map(([k, [label, fn]]) => ({ value: k, label, count: clients.filter(fn).length })));
+      const list = clients.filter((c) => CFILTERS[cFilter][1](c) && match(cQuery, c.name, c.email, c.company, c.phone, c.team_of, ...c.projects.map((p) => p.title)));
+      const mail = Admin.can('emails');
+      $('#clientList').innerHTML = list.length ? `
+        <div class="cl-row cl-head">${mail ? `<input type="checkbox" id="clAll" aria-label="Select all" ${list.every((c) => clPicked.has(c.email)) ? 'checked' : ''} />` : '<span></span>'}<span>Client</span><span>Work</span><span>${Admin.can('money') ? 'Money' : ''}</span><span>Last contact</span><span></span></div>`
+        + list.map((c) => `
+        <div class="cl-row${clPicked.has(c.email) ? ' on' : ''}${c.defaulter ? ' is-defaulter' : ''}" data-email="${esc(c.email)}">
+          ${mail ? `<input type="checkbox" value="${esc(c.email)}" aria-label="Select ${esc(c.name)}" ${clPicked.has(c.email) ? 'checked' : ''} />` : '<span></span>'}
+          <div class="adm-me"><span class="adm-avatar">${esc(c.name.slice(0, 1).toUpperCase())}</span><div><strong>${esc(c.name)}${c.company ? ` <span class="muted">· ${esc(c.company)}</span>` : ''}</strong><span>${esc(c.email)}${c.phone ? ' · ' + esc(c.phone) : ''}${c.team_of ? ` · on ${esc(c.team_of)}'s team` : ''}</span></div></div>
+          <div class="cl-work">${clientWork(c)}</div>
+          <div class="cl-money">${Admin.can('money') ? clientMoney(c) : ''}</div>
+          <div class="cl-when"><span>${c.last_activity ? ago(c.last_activity) : '—'}</span><span class="muted">${c.last_emailed_at ? 'Emailed ' + ago(c.last_emailed_at) : 'Not emailed yet'}</span></div>
+          <div class="adm-actions">${mail ? '<button type="button" class="adm-link" data-act="mail">Email</button>' : ''}<button type="button" class="adm-link" data-act="copy">Copy email</button></div>
+        </div>`).join('')
+        : empty(cQuery ? 'No clients match that search.' : cFilter === 'all' ? 'No clients yet. They show up here once they send a quote request, get a project or an invoice.' : 'Nobody here.');
+      $('#clBar').hidden = !clPicked.size;
+      $('#clPicked').textContent = `${clPicked.size} selected`;
+    };
+    const loadClients = async () => {
+      clients = await A('/api/admin/clients').catch((e) => (toast(e.message), []));
+      Admin.count('clients', clients.length);
+      if (view === 'clients') renderClients();
+      return clients;
+    };
+    $('#clientSearch').addEventListener('input', (e) => { cQuery = e.target.value.trim().toLowerCase(); renderClients(); });
+    $('#clientList').addEventListener('change', (e) => {
+      if (e.target.id === 'clAll') $$('#clientList .cl-row:not(.cl-head) input').forEach((c) => e.target.checked ? clPicked.add(c.value) : clPicked.delete(c.value));
+      else if (e.target.value) e.target.checked ? clPicked.add(e.target.value) : clPicked.delete(e.target.value);
+      renderClients();
+    });
+    $('#clientList').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-act]'); if (!btn) return;
+      const email = btn.closest('.cl-row').dataset.email;
+      if (btn.dataset.act === 'copy') return copy(email, 'Email copied');
+      emailTo([email]);
+    });
+    $('#clClear').addEventListener('click', () => { clPicked.clear(); renderClients(); });
+    $('#clEmail').addEventListener('click', () => { emailTo([...clPicked]); clPicked.clear(); });
+
+    /* ── Emails ── */
+    const rcpt = new Map(); // lower-case email -> { email, name }
+    let suggest = [], sFocus = 0, mailLog = [];
+    const rIn = $('#rcptInput'), sBox = $('#rcptSuggest'), mf = $('#mailForm');
+    const clientBy = (email) => clients.find((c) => c.email.toLowerCase() === email.toLowerCase());
+    const addRcpt = (email, name) => { email = email.trim(); if (!EMAIL.test(email)) return false; const c = clientBy(email); rcpt.set(email.toLowerCase(), { email: c?.email || email, name: name || c?.name || '' }); return true; };
+    const renderRcpt = () => {
+      $('#rcptChips').innerHTML = [...rcpt.values()].map((r) => `<span class="rcpt-chip" title="${esc(r.email)}">${esc(r.name || r.email)}<button type="button" data-rm="${esc(r.email.toLowerCase())}" aria-label="Remove ${esc(r.email)}"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"/></svg></button></span>`).join('');
+      $('[data-add=clear]').hidden = rcpt.size < 2;
+      $('#mailSend').textContent = rcpt.size > 1 ? `Send to ${rcpt.size} people` : 'Send email';
+      $('#rcpt').closest('.field').classList.remove('invalid');
+      if (!$('#previewBox').hidden) schedulePreview();
+    };
+    const emailTo = (emails) => {
+      emails.forEach((x) => addRcpt(x));
+      go('emails');
+      renderRcpt();
+      (mf.subject.value ? mf.message : mf.subject).focus();
+    };
+    const drawSuggest = () => {
+      const q = rIn.value.trim().toLowerCase();
+      suggest = q ? clients.filter((c) => !rcpt.has(c.email.toLowerCase()) && match(q, c.name, c.email, c.company)).slice(0, 7) : [];
+      const raw = EMAIL.test(rIn.value.trim()) && !clientBy(rIn.value.trim()) && !rcpt.has(rIn.value.trim().toLowerCase());
+      if (raw) suggest.push({ email: rIn.value.trim(), name: '', raw: true });
+      sFocus = Math.min(sFocus, Math.max(0, suggest.length - 1));
+      sBox.hidden = !suggest.length;
+      rIn.setAttribute('aria-expanded', String(!sBox.hidden));
+      sBox.innerHTML = suggest.map((c, i) => `<li role="option" data-i="${i}" class="${i === sFocus ? 'focus' : ''}"><span>${c.raw ? `Add <strong>${esc(c.email)}</strong>` : `${esc(c.name)} <em class="muted">${esc(c.email)}</em>`}</span>${c.balance ? `<em>${kes(c.balance)} pending</em>` : ''}</li>`).join('');
+    };
+    const pickSuggest = (i) => { const c = suggest[i]; if (!c) return; addRcpt(c.email, c.name); rIn.value = ''; sFocus = 0; drawSuggest(); renderRcpt(); rIn.focus(); };
+    const commitTyped = () => {
+      const parts = parseEmails(rIn.value);
+      if (!parts.length) return true;
+      const bad = parts.filter((x) => !addRcpt(x));
+      rIn.value = bad.join(', ');
+      renderRcpt(); drawSuggest();
+      if (bad.length) { toast(`That doesn't look like an email: ${bad[0]}`); return false; }
+      return true;
+    };
+    rIn.addEventListener('input', () => { if (/[,;]$/.test(rIn.value)) { commitTyped(); return; } sFocus = 0; drawSuggest(); });
+    rIn.addEventListener('paste', () => setTimeout(() => { if (parseEmails(rIn.value).length > 1) commitTyped(); }));
+    rIn.addEventListener('keydown', (e) => {
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && suggest.length) { e.preventDefault(); sFocus = (sFocus + (e.key === 'ArrowDown' ? 1 : -1) + suggest.length) % suggest.length; drawSuggest(); }
+      else if (e.key === 'Enter') { e.preventDefault(); suggest.length ? pickSuggest(sFocus) : commitTyped(); }
+      else if (e.key === 'Escape') { sBox.hidden = true; }
+      else if (e.key === 'Backspace' && !rIn.value && rcpt.size) { rcpt.delete([...rcpt.keys()].pop()); renderRcpt(); }
+    });
+    rIn.addEventListener('blur', () => setTimeout(() => { sBox.hidden = true; if (EMAIL.test(rIn.value.trim())) commitTyped(); }, 150));
+    sBox.addEventListener('mousedown', (e) => { const li = e.target.closest('li'); if (li) { e.preventDefault(); pickSuggest(Number(li.dataset.i)); } });
+    $('#rcpt').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]');
+      if (rm) { rcpt.delete(rm.dataset.rm); renderRcpt(); }
+      rIn.focus();
+    });
+    $('.rcpt-quick').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-add]'); if (!b) return;
+      const kind = b.dataset.add;
+      if (kind === 'clear') { rcpt.clear(); renderRcpt(); return; }
+      const fn = kind === 'active' ? isActive : kind === 'owing' ? (c) => c.balance > 0 : () => true;
+      if (kind === 'owing' && !Admin.can('money')) return toast("You don't have access to pending amounts");
+      const add = clients.filter(fn);
+      if (!add.length) return toast(kind === 'owing' ? 'Nobody owes you right now' : 'No clients to add');
+      add.forEach((c) => addRcpt(c.email, c.name));
+      renderRcpt();
+      toast(`Added ${add.length} ${add.length === 1 ? 'person' : 'people'}`);
+    });
+
+    let previewTimer;
+    const showPreview = async () => {
+      const first = [...rcpt.values()][0];
+      try {
+        const r = await A('/api/admin/emails/preview', { method: 'POST', body: { name: first?.name || '', subject: mf.subject.value, message: mf.message.value } });
+        $('#previewFrame').srcdoc = r.html;
+        $('#previewFor').textContent = first ? `As ${first.name || first.email} will see it${rcpt.size > 1 ? `. Everyone else gets the same, with their own name.` : '.'}` : 'Add someone to see it with their name.';
+        $('#previewBox').hidden = false;
+      } catch (err) { toast(err.message); }
+    };
+    const schedulePreview = () => { clearTimeout(previewTimer); previewTimer = setTimeout(showPreview, 600); };
+    $('#mailPreview').addEventListener('click', showPreview);
+    $('#previewClose').addEventListener('click', () => { $('#previewBox').hidden = true; });
+    [mf.subject, mf.message].forEach((i) => i.addEventListener('input', () => { i.closest('.field').classList.remove('invalid'); if (!$('#previewBox').hidden) schedulePreview(); }));
+
+    mf.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!commitTyped()) return;
+      let ok = true;
+      [['subject', !!mf.subject.value.trim()], ['message', !!mf.message.value.trim()]].forEach(([n, good]) => { mf[n].closest('.field').classList.toggle('invalid', !good); ok = ok && good; });
+      if (!rcpt.size) { $('#rcpt').closest('.field').classList.add('invalid'); toast('Add at least one person'); ok = false; }
+      if (!ok) return;
+      if (!Admin.info.email) return toast('Emails are off: set RESEND_API_KEY on the server');
+      const list = [...rcpt.values()], n = list.length;
+      const who = n === 1 ? esc(list[0].name || list[0].email) : `${n} people`;
+      if (!await confirmUI({ title: `Send to ${who}?`, text: `“${esc(mf.subject.value.trim())}”${n > 1 ? ' goes out as a separate email to each of them.' : ` goes to ${esc(list[0].email)}.`}`, ok: n > 1 ? `Send ${n} emails` : 'Send email' })) return;
+      const btn = $('#mailSend'); btn.disabled = true;
+      try {
+        const r = await A('/api/admin/emails', { method: 'POST', body: { to: list.map((x) => x.email), subject: mf.subject.value.trim(), message: mf.message.value.trim() } });
+        toast(r.sent.length === 1 ? `Sent to ${list[0].name || r.sent[0]}` : `Sent to ${r.sent.length} people`);
+        mf.reset(); rcpt.clear(); renderRcpt(); $('#previewBox').hidden = true;
+        loadMailLog(); loadClients();
+      } catch (err) { toast(err.message); }
+      finally { btn.disabled = false; }
+    });
+
+    /* One send to many people is logged per person: show it as one entry. */
+    const groupLog = (rows) => rows.reduce((out, r) => {
+      const last = out[out.length - 1];
+      if (last && last.subject === r.subject && last.body === r.body && last.sent_by === r.sent_by && Math.abs(new Date(last.at) - new Date(r.created_at)) < 120000) last.people.push(r);
+      else out.push({ subject: r.subject, body: r.body, sent_by: r.sent_by, at: r.created_at, people: [r] });
+      return out;
+    }, []);
+    const loadMailLog = async () => {
+      mailLog = groupLog(await A('/api/admin/emails').catch(() => []));
+      $('#mailHistory').innerHTML = mailLog.length ? mailLog.slice(0, 40).map((g, i) => {
+        const names = g.people.map((r) => r.client_name || r.recipients[0]);
+        return `
+        <details class="mail-item">
+          <summary><div><strong>${esc(g.subject)}</strong><span class="muted">${names.length === 1 ? esc(names[0]) : `${esc(names.slice(0, 2).join(', '))}${names.length > 2 ? ` and ${names.length - 2} more` : ''}`}</span></div>
+            <div class="adm-right"><span class="muted">${ago(g.at)}</span><span class="muted">${g.sent_by ? esc(g.sent_by) : ''}</span></div></summary>
+          <div class="mail-item-body">
+            <p class="muted adm-small">To ${g.people.map((r) => esc(r.recipients.join(', '))).join(', ')}</p>
+            ${g.body ? `<div class="mail-text">${esc(g.body)}</div>` : ''}
+            <div class="adm-actions"><button type="button" class="adm-link" data-reuse="${i}">Use again</button><button type="button" class="adm-link" data-resend="${i}">Write to ${g.people.length === 1 ? 'them' : 'them all'} again</button></div>
+          </div>
+        </details>`;
+      }).join('') : empty('Nothing sent yet. Your emails show up here.');
+    };
+    $('#mailHistory').addEventListener('click', (e) => {
+      const re = e.target.closest('[data-reuse]'), rs = e.target.closest('[data-resend]');
+      if (re) { const g = mailLog[re.dataset.reuse]; mf.subject.value = g.subject; mf.message.value = g.body; mf.message.focus(); toast('Copied into a new email. Pick who it goes to.'); }
+      if (rs) { const g = mailLog[rs.dataset.resend]; g.people.forEach((r) => r.recipients.forEach((x) => addRcpt(x))); renderRcpt(); mf.subject.focus(); }
+    });
+    const loadEmails = async () => {
+      if (!clients.length) await loadClients();
+      renderRcpt();
+      loadMailLog();
     };
 
     /* ── Quotes ── */

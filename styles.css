@@ -921,6 +921,68 @@ button.adm-stat:hover { border-color: var(--ink); }
   .adm-thead { display: none !important; }
 }
 
+/* Clients */
+.cl-bar { position: sticky; top: 12px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; padding: 10px 12px 10px 20px; background: var(--ink); color: var(--white); border-radius: 999px; font-size: 14px; }
+.cl-bar .adm-link { color: var(--white); text-decoration-color: rgba(255,255,255,0.4); }
+.cl-bar .btn-ink { background: var(--white); color: var(--ink); border-color: var(--white); }
+.cl-table { display: grid; }
+.cl-row { display: grid; grid-template-columns: 20px minmax(0, 2.4fr) minmax(0, 1.5fr) 130px 130px auto; gap: 16px; align-items: center; padding: 14px 10px; margin: 0 -10px; border-bottom: 1px solid var(--border); border-radius: 10px; font-size: 14px; transition: background 0.15s; }
+.cl-row:last-child { border-bottom: 0; }
+.cl-row:not(.cl-head):hover { background: var(--soft); }
+.cl-row.on { background: var(--green-soft); }
+.cl-row.is-defaulter { box-shadow: inset 3px 0 0 var(--wine); }
+.cl-row input { accent-color: var(--green); width: 16px; height: 16px; }
+.cl-head { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); padding-top: 4px; }
+.cl-row .adm-me > div { display: grid; gap: 2px; min-width: 0; }
+.cl-row .adm-me strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.cl-row .adm-me span:not(.adm-avatar) { white-space: nowrap; }
+.cl-row .adm-avatar { background: var(--green-soft); color: var(--green); }
+.cl-work, .cl-money, .cl-when { display: grid; gap: 2px; min-width: 0; }
+.cl-work span, .cl-when span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-work em { font-style: normal; }
+.cl-money span, .cl-when .muted { font-size: 13px; }
+.cl-row .adm-actions { gap: 14px; justify-content: flex-end; flex-wrap: nowrap; }
+
+/* Emails */
+.rcpt-wrap { position: relative; }
+.rcpt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); cursor: text; transition: border-color 0.3s var(--ease-quiet); }
+.rcpt:focus-within { border-bottom-color: var(--green); }
+.field.invalid .rcpt { border-bottom-color: var(--red); }
+.rcpt-chips { display: contents; }
+#mailForm .rcpt input { flex: 1; min-width: 180px; border: 0 !important; padding: 6px 0 !important; }
+.rcpt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--green-soft); color: var(--ink); font-size: 13px; max-width: 100%; }
+.rcpt-chip button { width: 20px; height: 20px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: var(--muted); }
+.rcpt-chip button:hover { background: rgba(11,107,83,0.14); color: var(--ink); }
+.rcpt-chip svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.rcpt-suggest { max-width: none; width: 100%; }
+.rcpt-suggest li span { overflow: hidden; text-overflow: ellipsis; }
+.rcpt-suggest li em { font-style: normal; }
+.rcpt-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; font-size: 13px; }
+.rcpt-quick .adm-link { font-size: 13px; }
+.mail-body { min-height: 240px !important; line-height: 1.6; }
+.mail-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.mail-side { display: grid; gap: 20px; }
+.mail-frame { width: 100%; height: 560px; border: 1px solid var(--border); background: var(--soft); }
+.mail-item { border-bottom: 1px solid var(--border); }
+.mail-item:last-child { border-bottom: 0; }
+.mail-item summary { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; font-size: 14px; cursor: pointer; list-style: none; }
+.mail-item summary::-webkit-details-marker { display: none; }
+.mail-item summary > div { display: grid; gap: 3px; min-width: 0; }
+.mail-item summary .muted { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item[open] summary strong { color: var(--green); }
+.mail-item-body { display: grid; gap: 12px; padding: 0 0 16px; }
+.mail-text { white-space: pre-wrap; font-size: 14px; line-height: 1.65; padding: 14px 16px; background: var(--soft); max-height: 320px; overflow: auto; }
+
+@media (max-width: 1100px) {
+  .cl-row { grid-template-columns: 20px minmax(0, 1fr) 120px auto; }
+  .cl-work, .cl-when { display: none; }
+  .cl-head > span:nth-child(3), .cl-head > span:nth-child(5) { display: none; }
+}
+@media (max-width: 600px) {
+  .cl-row { grid-template-columns: 20px minmax(0, 1fr) auto; }
+  .cl-row .adm-actions, .cl-head > span:last-child { display: none; }
+}
+
 /* Pay page: the pending amount on an invoice */
 .pending-amount { display: grid; gap: 4px; margin: 6px 0 4px; padding: 18px 20px; background: var(--green-soft); }
 .pending-amount span { font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--green-deep); }

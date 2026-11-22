@@ -269,7 +269,7 @@ class TrackOut(BaseModel):
 
 
 # ── Team ────────────────────────────────────────────────────────────────
-Section = Literal["projects", "money", "quotes", "payments", "reminders"]
+Section = Literal["clients", "projects", "money", "quotes", "payments", "reminders", "emails"]
 
 
 class TeamIn(BaseModel):
@@ -308,6 +308,18 @@ class MessageIn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
 
 
+class EmailIn(BaseModel):
+    to: list[EmailStr] = Field(min_length=1, max_length=200)
+    subject: str = Field(min_length=1, max_length=160)
+    message: str = Field(min_length=1, max_length=10000)
+
+
+class EmailPreviewIn(BaseModel):
+    name: str = Field("", max_length=120)
+    subject: str = Field("", max_length=160)
+    message: str = Field("", max_length=10000)
+
+
 class ReminderOut(Out):
     kind: str
     subject: str
@@ -316,4 +328,5 @@ class ReminderOut(Out):
     project_code: str | None
     client_name: str
     sent_by: str
+    body: str = ""
     created_at: datetime

@@ -470,6 +470,17 @@ def client_message(pr: dict, subject: str, message: str) -> tuple[str, str, str]
     return subject, html, text
 
 
+def custom_email(name: str, subject: str, message: str) -> tuple[str, str, str]:
+    """An email you write from scratch in the admin, to any client (or anyone)."""
+    first = first_name(name) if name else ""
+    hi = f"Hi {first}," if first else "Hi,"
+    paras = [para for para in message.strip().split("\n\n") if para.strip()]
+    body = p(e(hi)) + "".join(p(e(para).replace("\n", "<br>")) for para in paras)
+    html = layout(preheader=message.strip()[:90], heading=subject, body=body)
+    text = plain(hi, "", message.strip(), "", "Talk soon,", "Deon")
+    return subject, html, text
+
+
 def team_invite(name: str, key: str, sections: list[str]) -> tuple[str, str, str]:
     admin = url("/admin")
     subject = "Your access to the Deon admin"

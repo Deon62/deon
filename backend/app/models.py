@@ -195,11 +195,13 @@ class Payment(Base):
 
 # Parts of the admin a team member can be given. The owner (ADMIN_KEY) always has all of them, plus Team.
 SECTIONS: dict[str, str] = {
+    "clients": "Clients",
     "projects": "Projects",
     "money": "Pending amounts",
     "quotes": "Quotes",
     "payments": "Payments",
     "reminders": "Reminders",
+    "emails": "Emails",
 }
 
 
@@ -225,11 +227,12 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    kind: Mapped[str] = mapped_column(String(20))  # payment, message
+    kind: Mapped[str] = mapped_column(String(20))  # payment, message, email
     subject: Mapped[str] = mapped_column(String(200))
     recipients: Mapped[list] = mapped_column(JSON, default=list)
     invoice_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     project_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     client_name: Mapped[str] = mapped_column(String(120), default="")
     sent_by: Mapped[str] = mapped_column(String(120), default="")
+    body: Mapped[str] = mapped_column(Text, default="", server_default="")  # what you wrote (custom emails)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
